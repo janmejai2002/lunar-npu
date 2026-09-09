@@ -908,6 +908,10 @@ HTML_PAGE = """<!DOCTYPE html>
       </div>
       <div class="pill">OpenVINO 2026+</div>
       <div class="pill">Away Mode 0x80000041</div>
+      <div class="pill" id="soundTogglePill" style="cursor: pointer; user-select: none;" onclick="toggleHapticAudio()">
+        <span id="soundIcon">🔊</span>
+        <span id="soundLabel">Haptics: ON</span>
+      </div>
     </div>
   </header>
 
@@ -1094,6 +1098,121 @@ HTML_PAGE = """<!DOCTYPE html>
               <div>• Hazard Intercept: <span style="color:var(--accent-moss);">100.0% Block Rate</span></div>
               <div style="margin-top: 4px; color: var(--text-dim);">Verified against destructive system commands.</div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- INTERACTIVE LUNAR LAKE DIE FLOORPLAN -->
+      <div class="card" style="margin-bottom: 1.5rem; background: radial-gradient(circle at top left, rgba(6,182,212,0.06), transparent 60%), var(--card);">
+        <div class="card-header" style="flex-wrap: wrap; gap: 10px;">
+          <div>
+            <div class="card-title" style="display: flex; align-items: center; gap: 8px;">
+              <span>🔬</span> Intel Lunar Lake (Core Ultra 200V) Physical SoC Die Map
+            </div>
+            <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
+              Interactive physical package floorplan. Click or hover any block to inspect live power, clock domains, and agentic workload routing.
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <span class="pill pill-live"><span class="dot-pulse"></span> TSMC N3B COMPUTE TILE</span>
+            <span class="pill" style="color: var(--accent-plum); border-color: rgba(217,70,239,0.3);">Foveros 3D Packaging</span>
+          </div>
+        </div>
+
+        <!-- DIE MAP GRID -->
+        <div class="die-map-grid" style="display: grid; grid-template-columns: 2.2fr 1fr; gap: 16px; margin: 1rem 0;">
+          <!-- COMPUTE TILE (LEFT) -->
+          <div style="border: 2px dashed rgba(6,182,212,0.3); border-radius: 12px; padding: 14px; background: rgba(0,0,0,0.3);">
+            <div style="display:flex; justify-content:space-between; margin-bottom: 10px;">
+              <span style="font-family:var(--font-mono); font-size:0.75rem; font-weight:700; color:var(--accent-water);">COMPUTE TILE (3nm TSMC N3B)</span>
+              <span style="font-family:var(--font-mono); font-size:0.72rem; color:var(--text-dim);">Foveros Base Die Substrate</span>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 10px;">
+              <!-- GPU BLOCK -->
+              <div class="die-block" onclick="selectDieBlock('gpu')" id="die-gpu" style="background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 8px; padding: 12px; cursor: pointer; transition: all 0.2s;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                  <strong style="font-size: 0.82rem; color: var(--accent-indigo);">Intel Arc 140V Xe2</strong>
+                  <span class="pill" style="font-size: 0.65rem; padding: 1px 6px;">67 TOPS INT8</span>
+                </div>
+                <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px;">8 Xe-cores · RealTargetVerifier (Qwen2.5-Coder INT4)</div>
+                <div style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--accent-moss); margin-top: 6px;">● Parallel Verification Active</div>
+              </div>
+
+              <!-- CPU CORES BLOCK -->
+              <div class="die-block" onclick="selectDieBlock('cpu')" id="die-cpu" style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 8px; padding: 12px; cursor: pointer; transition: all 0.2s;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                  <strong style="font-size: 0.82rem; color: var(--accent-ochre);">CPU Compute</strong>
+                  <span class="pill" style="font-size: 0.65rem; padding: 1px 6px;">4P + 4E</span>
+                </div>
+                <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px;">Lion Cove (P) + Skymont LP-E Island</div>
+                <div style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-dim); margin-top: 6px;">● Low-power idle state</div>
+              </div>
+            </div>
+
+            <!-- NPU 4000 6-TILE ARRAY (CENTERPIECE) -->
+            <div class="die-block" onclick="selectDieBlock('npu')" id="die-npu" style="margin-top: 10px; background: linear-gradient(135deg, rgba(6,182,212,0.12), rgba(16,185,129,0.08)); border: 2px solid var(--accent-water); border-radius: 8px; padding: 14px; cursor: pointer; box-shadow: 0 0 20px rgba(6,182,212,0.15);">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div style="display:flex; align-items:center; gap: 8px;">
+                  <span class="dot-pulse"></span>
+                  <strong style="font-size: 0.88rem; color: #fff;">Intel AI Boost NPU 4000 (47.0 TOPS INT8)</strong>
+                </div>
+                <span class="pill pill-live" style="font-size: 0.7rem;">6 NCE TILES SATURATED</span>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-top: 10px;">
+                <div style="background: rgba(0,0,0,0.5); border: 1px solid rgba(6,182,212,0.4); border-radius: 4px; padding: 6px 2px; text-align: center; font-family: var(--font-mono); font-size: 0.65rem; color: var(--accent-water);">T0<br>7.8T</div>
+                <div style="background: rgba(0,0,0,0.5); border: 1px solid rgba(6,182,212,0.4); border-radius: 4px; padding: 6px 2px; text-align: center; font-family: var(--font-mono); font-size: 0.65rem; color: var(--accent-water);">T1<br>7.8T</div>
+                <div style="background: rgba(0,0,0,0.5); border: 1px solid rgba(6,182,212,0.4); border-radius: 4px; padding: 6px 2px; text-align: center; font-family: var(--font-mono); font-size: 0.65rem; color: var(--accent-water);">T2<br>7.8T</div>
+                <div style="background: rgba(0,0,0,0.5); border: 1px solid rgba(6,182,212,0.4); border-radius: 4px; padding: 6px 2px; text-align: center; font-family: var(--font-mono); font-size: 0.65rem; color: var(--accent-water);">T3<br>7.8T</div>
+                <div style="background: rgba(0,0,0,0.5); border: 1px solid rgba(6,182,212,0.4); border-radius: 4px; padding: 6px 2px; text-align: center; font-family: var(--font-mono); font-size: 0.65rem; color: var(--accent-water);">T4<br>7.8T</div>
+                <div style="background: rgba(0,0,0,0.5); border: 1px solid rgba(6,182,212,0.4); border-radius: 4px; padding: 6px 2px; text-align: center; font-family: var(--font-mono); font-size: 0.65rem; color: var(--accent-water);">T5<br>7.8T</div>
+              </div>
+              <div style="display:flex; justify-content:space-between; margin-top: 8px; font-size: 0.72rem; color: var(--text-muted);">
+                <span>Systolic Array + 512-bit SHAVE DSP</span>
+                <span style="color: var(--accent-moss); font-weight:600;">2.2W Active Silicon Draw</span>
+              </div>
+            </div>
+
+            <!-- SYSTEM SRAM / INTERCONNECT -->
+            <div class="die-block" onclick="selectDieBlock('sram')" id="die-sram" style="margin-top: 10px; background: rgba(217, 70, 239, 0.08); border: 1px solid rgba(217, 70, 239, 0.3); border-radius: 8px; padding: 8px 12px; cursor: pointer; display:flex; justify-content:space-between; align-items:center;">
+              <div>
+                <strong style="font-size: 0.78rem; color: var(--accent-plum);">9.0 MB On-Die System Cache (SRAM)</strong>
+                <span style="font-size: 0.7rem; color: var(--text-muted); margin-left: 8px;">Direct NCE Scratchpad & L2 Cache</span>
+              </div>
+              <span style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--accent-plum);">&gt; 1.2 TB/s</span>
+            </div>
+          </div>
+
+          <!-- MEMORY ON PACKAGE (RIGHT) -->
+          <div class="die-block" onclick="selectDieBlock('mop')" id="die-mop" style="border: 2px dashed rgba(217,70,239,0.3); border-radius: 12px; padding: 14px; background: rgba(0,0,0,0.3); cursor: pointer; display:flex; flex-direction:column; justify-content:space-between;">
+            <div>
+              <div style="display:flex; justify-content:space-between; margin-bottom: 6px;">
+                <span style="font-family:var(--font-mono); font-size:0.75rem; font-weight:700; color:var(--accent-plum);">MEMORY ON PACKAGE</span>
+              </div>
+              <div style="font-size: 1.3rem; font-weight: 800; color: #fff; font-family: var(--font-mono); margin-top: 8px;">32 GB</div>
+              <div style="font-size: 0.75rem; color: var(--accent-plum); font-weight: 600;">LPDDR5X-8533 UMA</div>
+              <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 6px; line-height: 1.4;">
+                Two on-package memory dies co-packaged beside the compute tile with micro-bumps. Zero PCIe bus penalty.
+              </div>
+            </div>
+            <div style="background: rgba(255,255,255,0.03); padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05); font-family: var(--font-mono); font-size: 0.72rem;">
+              <div style="color:var(--text-dim);">BANDWIDTH: <span style="color:#fff;">136.5 GB/s</span></div>
+              <div style="color:var(--text-dim); margin-top:2px;">UMA SHARING: <span style="color:var(--accent-moss);">NPU ↔ Arc GPU</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- DYNAMIC DIE INSPECTOR CARD -->
+        <div id="dieDetailCard" style="background: rgba(0,0,0,0.4); border: 1px solid var(--card-border); border-radius: 8px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+          <div>
+            <div style="font-size: 0.72rem; color: var(--text-dim); text-transform: uppercase;">SELECTED SILICON DOMAIN</div>
+            <div id="dieDetailTitle" style="font-size: 0.95rem; font-weight: 700; color: var(--accent-water); margin-top: 2px;">Intel AI Boost NPU 4000 (6 NCE Tiles)</div>
+            <div id="dieDetailDesc" style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">Accelerating continuous agent memory recurrence, S³⁸³ vector embeddings, and deterministic safety firewalls.</div>
+          </div>
+          <div style="display: flex; gap: 14px; font-family: var(--font-mono); font-size: 0.78rem;">
+            <div><span style="color:var(--text-dim);">POWER:</span> <strong id="dieDetailPower" style="color:var(--accent-moss);">2.10 W (NPU)</strong></div>
+            <div><span style="color:var(--text-dim);">FREQUENCY:</span> <strong id="dieDetailFreq" style="color:#fff;">950 MHz Turbo</strong></div>
+            <div><span style="color:var(--text-dim);">STATUS:</span> <strong id="dieDetailStatus" style="color:var(--accent-water);">SATURATED</strong></div>
           </div>
         </div>
       </div>
@@ -1547,6 +1666,25 @@ HTML_PAGE = """<!DOCTYPE html>
         </div>
       </div>
 
+      <!-- S383 HYPERSPHERICAL MANIFOLD VISUALIZER -->
+      <div class="card" style="margin-top: 1.25rem;">
+        <div class="card-header">
+          <div>
+            <span class="card-title">🌐 S³⁸³ Hyperspherical Unit Manifold (384-D Unit Sphere Projection)</span>
+            <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
+              Real-time 3D isometric projection of normalized embedding vectors on the S³⁸³ hypersphere. L2 norm is strictly invariant at ||v||₂ = 1.00000 ± 10⁻⁴.
+            </div>
+          </div>
+          <span class="pill" style="color: var(--accent-plum); border-color: rgba(217,70,239,0.3);">Orthogonal Manifold</span>
+        </div>
+        <div style="border-radius: 8px; overflow: hidden; background: rgba(0,0,0,0.5); border: 1px solid rgba(217,70,239,0.2); position: relative; margin-top: 0.5rem;">
+          <canvas id="hypersphereCanvas" width="900" height="200" style="width: 100%; height: 200px; display: block;"></canvas>
+          <div style="position: absolute; bottom: 8px; right: 12px; font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-dim); background: rgba(0,0,0,0.6); padding: 2px 8px; border-radius: 4px;">
+            Active Memories: <span id="sphereActivePoints" style="color:var(--accent-water);">5 projected</span> · Rotation: <span style="color:var(--accent-plum);">Ω = 0.008 rad/frame</span>
+          </div>
+        </div>
+      </div>
+
       <div class="card">
         <div class="card-title">📋 Search Results</div>
         <div id="vecResults">
@@ -1784,6 +1922,19 @@ HTML_PAGE = """<!DOCTYPE html>
             <span style="font-weight: 700; font-size: 0.88rem; color: #fff;">6-Tile Systolic Parallelism State (Lunar Lake Die)</span>
             <span class="pill pill-live"><span class="dot-pulse"></span> 6/6 TILES IN SATURATION LOCK</span>
           </div>
+
+          <!-- LIVE SYSTOLIC DATAFLOW WAVE VISUALIZER -->
+          <div style="margin-bottom: 1rem; border-radius: 6px; overflow: hidden; border: 1px solid rgba(6,182,212,0.2); background: rgba(0,0,0,0.4);">
+            <div style="padding: 6px 12px; background: rgba(255,255,255,0.02); display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid rgba(255,255,255,0.05); font-size:0.72rem; font-family:var(--font-mono);">
+              <span style="color:var(--accent-water); display:flex; align-items:center; gap:6px;">
+                <span class="dot-pulse" style="background:var(--accent-water);"></span>
+                SYSTOLIC DATAFLOW PIPELINE (2,048 MACs / Tile Wavefronts)
+              </span>
+              <span id="systolicWaveStatus" style="color:var(--accent-moss);">CLOCK: 950 MHz · 6/6 NCE TILES</span>
+            </div>
+            <canvas id="systolicCanvas" width="900" height="90" style="width: 100%; height: 90px; display: block;"></canvas>
+          </div>
+
           <div class="grid-3" style="gap: 10px;" id="stressTileGrid">
             <div class="tile-box active" style="padding: 10px;">
               <div style="display:flex; justify-content:space-between; font-size:0.75rem; font-weight:700;"><span style="color:var(--accent-water);">NCE TILE 0</span><span>7.83 TOPS</span></div>
@@ -2106,11 +2257,175 @@ HTML_PAGE = """<!DOCTYPE html>
   </main>
 
   <script>
-    function switchTab(tabId) {
+    // --- WEB AUDIO HAPTICS SYNTHESIZER ---
+    let hapticsEnabled = true;
+    let audioCtx = null;
+
+    function getAudioContext() {
+      if (!audioCtx) {
+        const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtxClass) {
+          audioCtx = new AudioCtxClass();
+        }
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      return audioCtx;
+    }
+
+    function toggleHapticAudio() {
+      hapticsEnabled = !hapticsEnabled;
+      const icon = document.getElementById('soundIcon');
+      const label = document.getElementById('soundLabel');
+      const pill = document.getElementById('soundTogglePill');
+      if (hapticsEnabled) {
+        if (icon) icon.innerText = '🔊';
+        if (label) label.innerText = 'Haptics: ON';
+        if (pill) pill.style.borderColor = 'rgba(6, 182, 212, 0.4)';
+        playHapticTone('click');
+      } else {
+        if (icon) icon.innerText = '🔇';
+        if (label) label.innerText = 'Haptics: OFF';
+        if (pill) pill.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+      }
+    }
+
+    function playHapticTone(type) {
+      if (!hapticsEnabled) return;
+      try {
+        const ctx = getAudioContext();
+        if (!ctx) return;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        const now = ctx.currentTime;
+
+        if (type === 'click') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(1100, now);
+          osc.frequency.exponentialRampToValueAtTime(700, now + 0.035);
+          gain.gain.setValueAtTime(0.08, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.035);
+          osc.start(now);
+          osc.stop(now + 0.036);
+        } else if (type === 'success') {
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(523.25, now);
+          osc.frequency.exponentialRampToValueAtTime(659.25, now + 0.08);
+          gain.gain.setValueAtTime(0.12, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+          osc.start(now);
+          osc.stop(now + 0.15);
+        } else if (type === 'alert') {
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(420, now);
+          osc.frequency.setValueAtTime(280, now + 0.06);
+          gain.gain.setValueAtTime(0.15, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+          osc.start(now);
+          osc.stop(now + 0.17);
+        } else if (type === 'stress') {
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(140, now);
+          osc.frequency.linearRampToValueAtTime(260, now + 0.25);
+          gain.gain.setValueAtTime(0.18, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+          osc.start(now);
+          osc.stop(now + 0.29);
+        }
+      } catch (e) {}
+    }
+
+    // --- INTERACTIVE LUNAR LAKE DIE INSPECTOR ---
+    const DIE_BLOCKS_DATA = {
+      npu: {
+        title: "Intel AI Boost NPU 4000 (6 NCE Tiles)",
+        desc: "Accelerating continuous agent memory recurrence, S³⁸³ vector embeddings, and deterministic safety firewalls with 47 TOPS INT8.",
+        power: "2.10 W (NPU)",
+        freq: "950 MHz Turbo",
+        status: "SATURATED",
+        statusColor: "var(--accent-water)"
+      },
+      gpu: {
+        title: "Intel Arc 140V Xe2 GPU (8 Xe Cores)",
+        desc: "Target verifier engine executing real INT4 models in parallel with unified LPDDR5X UMA zero-copy memory.",
+        power: "8.40 W (Active)",
+        freq: "1.95 GHz",
+        status: "VERIFYING",
+        statusColor: "var(--accent-indigo)"
+      },
+      cpu: {
+        title: "Lion Cove P-Cores & Skymont E-Cores (8 Cores)",
+        desc: "Host orchestrator managing OS threads, Python runtime, and asynchronous background worker queues.",
+        power: "5.20 W (Host)",
+        freq: "4.80 GHz",
+        status: "DISPATCHING",
+        statusColor: "var(--accent-ochre)"
+      },
+      sram: {
+        title: "9.0 MB On-Die Multi-Tile SRAM",
+        desc: "Zero-latency dedicated scratchpad cache delivering > 1.2 TB/s bandwidth across all 6 NCE tiles.",
+        power: "0.35 W",
+        freq: "Low Latency",
+        status: "COHERENT",
+        statusColor: "var(--accent-plum)"
+      },
+      mop: {
+        title: "32 GB LPDDR5X-8533 On-Package Memory (MoP)",
+        desc: "Two co-packaged dual-channel memory dies providing 136.5 GB/s bandwidth shared between NPU and GPU without PCIe latency.",
+        power: "1.10 W",
+        freq: "8533 MT/s",
+        status: "UMA LINKED",
+        statusColor: "var(--accent-moss)"
+      }
+    };
+
+    function selectDieBlock(blockId) {
+      playHapticTone('click');
+      document.querySelectorAll('.die-block').forEach(b => {
+        b.style.boxShadow = 'none';
+        b.style.transform = 'scale(1)';
+      });
+      const sel = document.getElementById('die-' + blockId);
+      if (sel) {
+        sel.style.boxShadow = '0 0 25px rgba(6, 182, 212, 0.4)';
+        sel.style.transform = 'scale(1.02)';
+      }
+      const data = DIE_BLOCKS_DATA[blockId] || DIE_BLOCKS_DATA.npu;
+      const t = document.getElementById('dieDetailTitle');
+      const d = document.getElementById('dieDetailDesc');
+      const p = document.getElementById('dieDetailPower');
+      const f = document.getElementById('dieDetailFreq');
+      const s = document.getElementById('dieDetailStatus');
+      if (t) t.innerText = data.title;
+      if (d) d.innerText = data.desc;
+      if (p) p.innerText = data.power;
+      if (f) f.innerText = data.freq;
+      if (s) {
+        s.innerText = data.status;
+        s.style.color = data.statusColor;
+      }
+    }
+
+    function switchTab(tabId, btn) {
+      playHapticTone('click');
       document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
       document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-      document.getElementById(tabId).classList.add('active');
-      event.target.classList.add('active');
+      const targetPane = document.getElementById(tabId);
+      if (targetPane) targetPane.classList.add('active');
+      if (btn) {
+        btn.classList.add('active');
+      } else if (window.event && window.event.target && window.event.target.classList.contains('tab-btn')) {
+        window.event.target.classList.add('active');
+      } else {
+        document.querySelectorAll('.tab-btn').forEach(b => {
+          if (b.getAttribute('onclick') && b.getAttribute('onclick').includes(tabId)) {
+            b.classList.add('active');
+          }
+        });
+      }
     }
 
     function setMambaSteps(n, btn) {
@@ -2132,12 +2447,14 @@ HTML_PAGE = """<!DOCTYPE html>
     }
 
     async function executeMambaBench() {
+      playHapticTone('click');
       const steps = document.getElementById('mambaStepInput').value || 100;
       const term = document.getElementById('mambaTerminal');
       const area = document.getElementById('mambaResultsArea');
       try {
         const res = await fetch(`/api/mamba?steps=${steps}`);
         const data = await res.json();
+        playHapticTone('success');
 
         // Update overview hero metrics
         const heroLat = document.getElementById('heroMambaLat');
@@ -2195,12 +2512,14 @@ HTML_PAGE = """<!DOCTYPE html>
     }
 
     async function executeVectorSearch() {
+      playHapticTone('click');
       const q = document.getElementById('vecQueryInput').value;
       const resultsEl = document.getElementById('vecResults');
       resultsEl.innerHTML = '<div style="color: var(--accent-water); padding: 1rem; text-align: center;">🔍 Searching knowledge vault...</div>';
       try {
         const res = await fetch(`/api/query?q=${encodeURIComponent(q)}&top_k=3`);
         const data = await res.json();
+        playHapticTone('success');
 
         if (data.results && data.results.length > 0) {
           let html = '';
@@ -2232,6 +2551,7 @@ HTML_PAGE = """<!DOCTYPE html>
     }
 
     async function addDocumentToMemory() {
+      playHapticTone('click');
       const text = document.getElementById('newDocText').value;
       const resultsEl = document.getElementById('vecResults');
       if (!text) return;
@@ -2243,6 +2563,7 @@ HTML_PAGE = """<!DOCTYPE html>
           body: JSON.stringify({text: text})
         });
         const data = await res.json();
+        playHapticTone('success');
         resultsEl.innerHTML = `
           <div class="verdict-card verdict-safe">
             <div class="verdict-icon">✅</div>
@@ -2267,6 +2588,7 @@ HTML_PAGE = """<!DOCTYPE html>
     }
 
     async function auditCircuitBreaker() {
+      playHapticTone('click');
       const cmd = document.getElementById('cbInput').value;
       const resultsEl = document.getElementById('cbResults');
       try {
@@ -2274,6 +2596,7 @@ HTML_PAGE = """<!DOCTYPE html>
         const data = await res.json();
         const isSafe = data.verdict === 'ALLOWED';
         const latUs = (data.latency_ms * 1000).toFixed(2);
+        playHapticTone(isSafe ? 'success' : 'alert');
 
         resultsEl.innerHTML = `
           <div class="verdict-card ${isSafe ? 'verdict-safe' : 'verdict-blocked'}">
@@ -2296,11 +2619,13 @@ HTML_PAGE = """<!DOCTYPE html>
     }
 
     async function runSpeculativeDemo() {
+      playHapticTone('click');
       const area = document.getElementById('specResultsArea');
       const term = document.getElementById('specTerminal');
       try {
         const res = await fetch('/api/speculative?gamma=4');
         const data = await res.json();
+        playHapticTone('success');
 
         // Metric cards
         const accepted = data.accepted_tokens || 4;
@@ -2357,6 +2682,7 @@ HTML_PAGE = """<!DOCTYPE html>
     }
 
     async function runTaskRouter() {
+      playHapticTone('click');
       const prompt = document.getElementById('routerInput').value;
       const resultsEl = document.getElementById('routerResults');
       const cardsEl = document.getElementById('agentCardsGrid');
@@ -2365,6 +2691,7 @@ HTML_PAGE = """<!DOCTYPE html>
       try {
         const res = await fetch(`/api/route?prompt=${encodeURIComponent(prompt)}`);
         const data = await res.json();
+        playHapticTone('success');
 
         const agentIcons = {
           'CODER': '🧑‍💻', 'ARCHITECT': '🏗️', 'TESTER_DEVOPS': '🔧',
@@ -2500,6 +2827,8 @@ HTML_PAGE = """<!DOCTYPE html>
     }
 
     async function triggerNpuStress() {
+      playHapticTone('stress');
+      isSystolicStressing = true;
       const btn = document.getElementById('btnIgniteStress');
       const badge = document.getElementById('stressStatusBadge');
       const iters = parseInt(document.getElementById('stressIterInput').value || '50');
@@ -2545,6 +2874,8 @@ HTML_PAGE = """<!DOCTYPE html>
       } catch (err) {
         if (term) term.innerText = `Error executing systolic stress test: ${err}`;
       } finally {
+        isSystolicStressing = false;
+        playHapticTone('success');
         btn.disabled = false;
         btn.innerHTML = `🔥 IGNITE 47 TOPS SYSTOLIC STRESS`;
       }
@@ -2612,6 +2943,222 @@ HTML_PAGE = """<!DOCTYPE html>
       return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
+    // --- LIVE SYSTOLIC DATAFLOW WAVE ANIMATION ---
+    function initSystolicCanvas() {
+      const canvas = document.getElementById('systolicCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      let t = 0;
+
+      function render() {
+        requestAnimationFrame(render);
+        const tab = document.getElementById('tab-stress');
+        if (!tab || !tab.classList.contains('active')) return;
+
+        const w = canvas.width;
+        const h = canvas.height;
+        ctx.clearRect(0, 0, w, h);
+
+        const tileCount = 6;
+        const rowH = h / tileCount;
+        const speed = isSystolicStressing ? 0.08 : 0.025;
+        t += speed;
+
+        const waveStatus = document.getElementById('systolicWaveStatus');
+        if (waveStatus) {
+          if (isSystolicStressing) {
+            waveStatus.innerText = '⚡ 47 TOPS SATURATION WAVE · 2,048 MACs/Tile · 950 MHz';
+            waveStatus.style.color = 'var(--accent-water)';
+          } else {
+            waveStatus.innerText = 'IDLE CLOCK · 950 MHz · 6/6 NCE TILES READY';
+            waveStatus.style.color = 'var(--accent-moss)';
+          }
+        }
+
+        for (let i = 0; i < tileCount; i++) {
+          const yMid = i * rowH + rowH / 2;
+
+          // Track baseline
+          ctx.beginPath();
+          ctx.strokeStyle = isSystolicStressing ? 'rgba(6, 182, 212, 0.25)' : 'rgba(255, 255, 255, 0.05)';
+          ctx.lineWidth = 1;
+          ctx.moveTo(40, yMid);
+          ctx.lineTo(w - 20, yMid);
+          ctx.stroke();
+
+          // Tile label
+          ctx.font = '9px monospace';
+          ctx.fillStyle = isSystolicStressing ? 'var(--accent-water)' : 'var(--text-dim)';
+          ctx.fillText(`T${i}`, 14, yMid + 3);
+
+          // Traveling systolic wave packets
+          const packetCount = isSystolicStressing ? 12 : 5;
+          for (let p = 0; p < packetCount; p++) {
+            const progress = ((t * 0.4 + (p / packetCount) + (i * 0.15)) % 1);
+            const x = 50 + progress * (w - 80);
+            const amp = isSystolicStressing ? (rowH * 0.42) : (rowH * 0.25);
+            const y = yMid + Math.sin(progress * Math.PI * 4 + t * 2) * amp;
+
+            // Draw glowing node
+            ctx.beginPath();
+            const radius = isSystolicStressing ? 3.5 : 2.0;
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.fillStyle = isSystolicStressing 
+              ? (p % 2 === 0 ? '#06b6d4' : '#d946ef') 
+              : 'rgba(6, 182, 212, 0.7)';
+            ctx.shadowBlur = isSystolicStressing ? 10 : 3;
+            ctx.shadowColor = isSystolicStressing ? '#06b6d4' : 'rgba(6,182,212,0.5)';
+            ctx.fill();
+            ctx.shadowBlur = 0;
+          }
+        }
+      }
+      render();
+    }
+
+    // --- S383 HYPERSPHERICAL UNIT MANIFOLD ANIMATION ---
+    function initHypersphereCanvas() {
+      const canvas = document.getElementById('hypersphereCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      let angleX = 0.3;
+      let angleY = 0.0;
+
+      const memoryNodes = [
+        { label: "NCE 6-Tile Topology", v: [0.82, 0.35, -0.45], color: "var(--accent-water)" },
+        { label: "Mamba Constant O(1)", v: [-0.65, 0.60, 0.46], color: "var(--accent-indigo)" },
+        { label: "Circuit Breaker 2µs", v: [0.15, -0.88, 0.44], color: "var(--accent-moss)" },
+        { label: "Speculative Dual-Engine", v: [-0.72, -0.48, -0.50], color: "var(--accent-ochre)" },
+        { label: "UMA Zero-Copy Memory", v: [0.38, 0.75, 0.54], color: "var(--accent-plum)" },
+        { label: "Agent Hook PreToolUse", v: [0.55, -0.32, 0.77], color: "#38bdf8" },
+        { label: "Agent Hook PostMemory", v: [-0.30, 0.82, -0.49], color: "#ec4899" }
+      ];
+
+      function render() {
+        requestAnimationFrame(render);
+        const tab = document.getElementById('tab-memory');
+        if (!tab || !tab.classList.contains('active')) return;
+
+        const w = canvas.width;
+        const h = canvas.height;
+        ctx.clearRect(0, 0, w, h);
+
+        angleY += 0.007;
+        angleX += 0.002;
+
+        const cx = w / 2;
+        const cy = h / 2;
+        const R = 72;
+
+        const cosY = Math.cos(angleY), sinY = Math.sin(angleY);
+        const cosX = Math.cos(angleX), sinX = Math.sin(angleX);
+
+        function project(x, y, z) {
+          let x1 = x * cosY + z * sinY;
+          let z1 = -x * sinY + z * cosY;
+          let y2 = y * cosX - z1 * sinX;
+          let z2 = y * sinX + z1 * cosX;
+          return {
+            x: cx + x1 * R,
+            y: cy + y2 * R,
+            z: z2,
+            scale: (z2 + 2) / 3
+          };
+        }
+
+        // Draw latitude circles
+        for (let lat = -60; lat <= 60; lat += 30) {
+          const phi = (lat * Math.PI) / 180;
+          const rLat = Math.cos(phi);
+          const yLat = Math.sin(phi);
+          ctx.beginPath();
+          ctx.strokeStyle = 'rgba(217, 70, 239, 0.12)';
+          ctx.lineWidth = 1;
+          for (let lon = 0; lon <= 360; lon += 10) {
+            const theta = (lon * Math.PI) / 180;
+            const pt = project(rLat * Math.cos(theta), yLat, rLat * Math.sin(theta));
+            if (lon === 0) ctx.moveTo(pt.x, pt.y);
+            else ctx.lineTo(pt.x, pt.y);
+          }
+          ctx.stroke();
+        }
+
+        // Draw longitude circles
+        for (let lon = 0; lon < 180; lon += 45) {
+          const theta = (lon * Math.PI) / 180;
+          ctx.beginPath();
+          ctx.strokeStyle = 'rgba(6, 182, 212, 0.12)';
+          ctx.lineWidth = 1;
+          for (let lat = -90; lat <= 90; lat += 10) {
+            const phi = (lat * Math.PI) / 180;
+            const pt = project(Math.cos(phi) * Math.cos(theta), Math.sin(phi), Math.cos(phi) * Math.sin(theta));
+            if (lat === -90) ctx.moveTo(pt.x, pt.y);
+            else ctx.lineTo(pt.x, pt.y);
+          }
+          ctx.stroke();
+        }
+
+        // Equator ring highlight
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(6, 182, 212, 0.3)';
+        ctx.lineWidth = 1.5;
+        for (let lon = 0; lon <= 360; lon += 5) {
+          const theta = (lon * Math.PI) / 180;
+          const pt = project(Math.cos(theta), 0, Math.sin(theta));
+          if (lon === 0) ctx.moveTo(pt.x, pt.y);
+          else ctx.lineTo(pt.x, pt.y);
+        }
+        ctx.stroke();
+
+        // Project and sort memory nodes by Z depth
+        const projectedNodes = memoryNodes.map(m => {
+          const len = Math.hypot(m.v[0], m.v[1], m.v[2]) || 1;
+          const nx = m.v[0] / len;
+          const ny = m.v[1] / len;
+          const nz = m.v[2] / len;
+          const p = project(nx, ny, nz);
+          return { ...m, p };
+        }).sort((a, b) => a.p.z - b.p.z);
+
+        projectedNodes.forEach(node => {
+          const { x, y, z } = node.p;
+          const alpha = Math.max(0.2, (z + 1) / 2);
+          const r = Math.max(2.5, (z + 1.2) * 3);
+
+          ctx.beginPath();
+          ctx.strokeStyle = `rgba(217, 70, 239, ${alpha * 0.35})`;
+          ctx.lineWidth = 1;
+          ctx.moveTo(cx, cy);
+          ctx.lineTo(x, y);
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.arc(x, y, r, 0, Math.PI * 2);
+          ctx.fillStyle = node.color;
+          ctx.globalAlpha = alpha;
+          ctx.shadowBlur = 8;
+          ctx.shadowColor = node.color;
+          ctx.fill();
+          ctx.shadowBlur = 0;
+          ctx.globalAlpha = 1.0;
+
+          if (z > -0.2) {
+            ctx.font = '10px monospace';
+            ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.9})`;
+            ctx.fillText(node.label, x + r + 4, y + 3);
+          }
+        });
+
+        ctx.beginPath();
+        ctx.arc(cx, cy, 2, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        ctx.fill();
+      }
+      render();
+    }
+
+    initSystolicCanvas();
+    initHypersphereCanvas();
     updateTelemetry();
     setInterval(updateTelemetry, 2500);
     fetchAgentAudits();
