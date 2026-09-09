@@ -361,9 +361,15 @@ class LunarStudioHandler(BaseHTTPRequestHandler):
 
 
 def run_studio(host: str = "127.0.0.1", port: int = 8899, open_browser: bool = True):
+    try:
+        import sys
+        if hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
     server = HTTPServer((host, port), LunarStudioHandler)
     url = f"http://{host}:{port}"
-    print(f"\n[🚀] Lunar NPU Studio launched at: {url}")
+    print(f"\n[*] Lunar NPU Studio launched at: {url}")
     print("Press Ctrl+C to stop the Studio server.\n")
 
     if open_browser:
