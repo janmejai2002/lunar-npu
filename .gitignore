@@ -79,12 +79,7 @@ src/login_assisted.py
 src/ml/
 src/quota_pool/
 src/reliability/
-src/hardware_rig/audio_ingest_harness.py
-src/hardware_rig/compilation_rig.py
-src/hardware_rig/d3d11_capture_harness.py
-src/hardware_rig/latency_suite.py
-src/hardware_rig/memory_soak_test.py
-src/hardware_rig/recovery_manager.py
-src/hardware_rig/tdd_orchestrator.py
+src/
+tests/test_hardware_rig/
 tests/test_api_endpoints.py
 tests/test_harness.py
