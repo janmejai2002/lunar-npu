@@ -14,7 +14,7 @@
 *Physical silicon acceleration for Intel AI Boost (47 TOPS NPU) — Sub-0.2ms Mamba SSM Recurrence, S³⁸³ Hyperspherical Vector Memory, Zero-Copy Speculative Decoding, and Microsecond Silicon Circuit Breakers.*
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![CI Status](https://img.shields.io/badge/CI-Passing-brightgreen.svg)](#)
+[![CI Status](https://github.com/janmejai2002/lunar-npu/actions/workflows/ci.yml/badge.svg)](https://github.com/janmejai2002/lunar-npu/actions/workflows/ci.yml)
 [![Silicon Target](https://img.shields.io/badge/Silicon-Intel%20Lunar%20Lake%20(47%20TOPS)-orange.svg)](research/01_silicon_microarchitecture_and_hardware_internals.md)
 [![OpenVINO](https://img.shields.io/badge/Runtime-OpenVINO%202025+-purple.svg)](https://github.com/openvinotoolkit/openvino)
 [![Python Version](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg)](pyproject.toml)
