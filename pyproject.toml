@@ -41,6 +41,7 @@ classifiers = [
 dependencies = [
     "openvino>=2025.0.0",
     "numpy>=1.24.0",
+    "click>=8.0.0",
 ]
 
 [project.optional-dependencies]
