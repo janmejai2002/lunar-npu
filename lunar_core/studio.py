@@ -31,6 +31,9 @@ HTML_PAGE = """<!DOCTYPE html>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Lunar NPU Studio — Intel Lunar Lake Ambient Intelligence</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" crossorigin="anonymous">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" crossorigin="anonymous"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" crossorigin="anonymous" onload="if(window.renderMathInElement) renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
   <style>
     :root {
       --bg: #07090e;
@@ -59,6 +62,22 @@ HTML_PAGE = """<!DOCTYPE html>
       
       --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif;
       --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    .math-eq {
+      font-family: "Cambria Math", "Latin Modern Math", "STIX Two Math", "Times New Roman", serif;
+      font-size: 0.95rem;
+      letter-spacing: 0.02em;
+      color: #cbd5e1;
+      display: inline-flex;
+      align-items: center;
+      gap: 1px;
+    }
+    .math-bar {
+      border-top: 1.5px solid #cbd5e1;
+      padding-top: 1px;
+      line-height: 1;
+      display: inline-block;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -469,7 +488,7 @@ HTML_PAGE = """<!DOCTYPE html>
             <span class="badge-ok">ZERO KV-CACHE</span>
           </div>
           <div class="stat-hero" style="color: var(--accent-indigo);" id="heroMambaLat">0.197 <span class="stat-unit">ms</span></div>
-          <div class="stat-label">Linear State Update ($h_t = \\bar{A}h_{t-1} + \\bar{B}x_t$)</div>
+          <div class="stat-label">Linear State Update (<span class="math-eq"><i>h</i><sub><i>t</i></sub> = <span class="math-bar"><i>A</i></span><i>h</i><sub><i>t</i>−1</sub> + <span class="math-bar"><i>B</i></span><i>x</i><sub><i>t</i></sub></span>)</div>
           <div style="margin-top: 1rem; color: var(--text-muted); font-size: 0.82rem;">
             Throughput: <strong id="heroMambaTps" style="color:#fff;">5,068 tok/s</strong><br>
             Memory Complexity: <strong style="color:var(--accent-indigo);">O(1) Bounded State</strong>
