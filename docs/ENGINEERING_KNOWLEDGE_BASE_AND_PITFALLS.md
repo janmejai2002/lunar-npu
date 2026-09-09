@@ -89,6 +89,11 @@ Located in [engine.py](file:///c:/Users/Janmejai/Documents/antigravity/jolly-mei
 - **Symptom:** Replacing code chunks corrupts the multiline Python string `HTML_PAGE`.
 - **Rule:** `studio.py` contains the entire frontend in a single string. Never rewrite the whole file at once. Always locate the specific section (e.g., using `Select-String` or `grep_search`) and use targeted contiguous replacements (`replace_file_content`).
 
+### Pitfall 6: Windows Socket TimeWait & Single-Threaded Deadlocks
+- **Symptom:** Studio server exits on restart or browser requests hang while another inference benchmark is executing.
+- **Root Cause:** Standard Python `http.server.HTTPServer` is single-threaded and does not reuse sockets in `TIME_WAIT` on Windows by default.
+- **Rule:** Always use `ThreadingHTTPServer` subclassed with `allow_reuse_address = True` and `daemon_threads = True` so requests are serviced concurrently and sockets release cleanly.
+
 ---
 
 ## 4. Dogfooding & Integration Status
