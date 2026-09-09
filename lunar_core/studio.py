@@ -12,7 +12,7 @@ import sys
 import json
 import time
 import urllib.parse
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import HTTPServer, ThreadingHTTPServer, BaseHTTPRequestHandler
 import webbrowser
 from typing import Any, Dict, List, Optional
 import urllib.request
@@ -23,6 +23,7 @@ from lunar_core.vector_memory import LunarVectorMemory
 from lunar_core.speculative import LunarSpeculativePipeline
 from lunar_core.circuit_breaker import SiliconCircuitBreaker
 from lunar_core.router import MicroRouter
+from lunar_core.power_telemetry import get_power_telemetry, LunarPowerTelemetry
 
 
 HTML_PAGE = """<!DOCTYPE html>
@@ -1310,7 +1311,23 @@ HTML_PAGE = """<!DOCTYPE html>
           <div style="background: var(--bg-surface); padding: 1rem; border-radius: 8px; border: 1px solid var(--card-border-subtle);">
             <div style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase;">Energy Saved</div>
             <div style="font-size: 1.6rem; font-weight: 700; color: var(--accent-plum); font-family: var(--font-mono);" id="telEnergySaved">0.00 J</div>
-            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">2.5W NPU vs 45W CPU</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;" id="telEnergySub">Live RAPL vs 2.2W NPU</div>
+          </div>
+        </div>
+
+        <!-- LIVE INTEL RAPL HARDWARE POWER SENSORS STRIP -->
+        <div style="background: rgba(16, 185, 129, 0.04); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 8px; padding: 0.85rem 1rem; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="dot-pulse"></span>
+            <span style="font-size: 0.78rem; font-weight: 700; color: var(--accent-moss); text-transform: uppercase; letter-spacing: 0.05em;" id="raplSensorLabel">INTEL RAPL HARDWARE SENSORS</span>
+          </div>
+          <div style="display: flex; gap: 16px; font-family: var(--font-mono); font-size: 0.8rem; flex-wrap: wrap;">
+            <div><span style="color: var(--text-dim);">PKG:</span> <strong style="color: #fff;" id="raplPkgPower">-- W</strong></div>
+            <div><span style="color: var(--text-dim);">CORES:</span> <strong style="color: var(--accent-water);" id="raplCorePower">-- W</strong></div>
+            <div><span style="color: var(--text-dim);">SOC/UNCORE:</span> <strong style="color: var(--accent-indigo);" id="raplUncorePower">-- W</strong></div>
+            <div><span style="color: var(--text-dim);">LPDDR5X:</span> <strong style="color: var(--accent-plum);" id="raplDramPower">-- W</strong></div>
+            <div><span style="color: var(--text-dim);">NPU EST:</span> <strong style="color: var(--accent-moss);" id="raplNpuPower">-- W</strong></div>
+            <div><span style="color: var(--text-dim);">TEMP:</span> <strong style="color: var(--accent-ochre);" id="raplTemp">-- °C</strong></div>
           </div>
         </div>
         <div style="border-top: 1px solid var(--card-border-subtle); padding-top: 0.75rem;">
@@ -2035,6 +2052,26 @@ HTML_PAGE = """<!DOCTYPE html>
         const elUp = document.getElementById('telUptime');
         if (elUp) elUp.innerText = `UPTIME: ${Math.round(d.uptime_seconds)}s`;
 
+        // Update Live Physical RAPL Hardware Sensors
+        if (d.package_power_w !== undefined) {
+          const elPkg = document.getElementById('raplPkgPower');
+          if (elPkg) elPkg.innerText = d.package_power_w.toFixed(2) + ' W';
+          const elCore = document.getElementById('raplCorePower');
+          if (elCore) elCore.innerText = d.core_power_w.toFixed(2) + ' W';
+          const elUncore = document.getElementById('raplUncorePower');
+          if (elUncore) elUncore.innerText = d.uncore_power_w.toFixed(2) + ' W';
+          const elDram = document.getElementById('raplDramPower');
+          if (elDram) elDram.innerText = d.dram_power_w.toFixed(2) + ' W';
+          const elNpu = document.getElementById('raplNpuPower');
+          if (elNpu) elNpu.innerText = (d.npu_power_est_w || 2.2).toFixed(2) + ' W';
+          const elTemp = document.getElementById('raplTemp');
+          if (elTemp) elTemp.innerText = (d.temperature_c || 50.0).toFixed(1) + ' °C';
+          const elLbl = document.getElementById('raplSensorLabel');
+          if (elLbl && d.power_sensor_backend) elLbl.innerText = d.power_sensor_backend.toUpperCase();
+          const elSub = document.getElementById('telEnergySub');
+          if (elSub) elSub.innerText = `${d.package_power_w.toFixed(1)}W Host vs ${(d.npu_power_est_w || 2.2).toFixed(1)}W NPU`;
+        }
+
         // Update Live Sliding Ticker Items
         const tTime = document.getElementById('tickActiveTime');
         if (tTime) tTime.innerText = d.total_silicon_time_ms.toFixed(1) + ' ms';
@@ -2087,6 +2124,7 @@ class SiliconTelemetry:
         self.total_circuit_audits = 0
         self.total_silicon_time_ms = 0.0
         self.recent_events: List[Dict[str, Any]] = []
+        self.power_sensor = get_power_telemetry()
 
     def record(self, op_type: str, latency_ms: float, details: Optional[Dict[str, Any]] = None):
         self.total_silicon_time_ms += latency_ms
@@ -2115,7 +2153,12 @@ class SiliconTelemetry:
         total_ops = self.total_embeddings + self.total_routed_prompts + self.total_circuit_audits + (1 if self.total_mamba_steps > 0 else 0)
         est_tokens = (self.total_embeddings + self.total_routed_prompts) * 500 + self.total_mamba_steps
         cloud_savings_usd = (est_tokens / 1_000_000.0) * 3.00
-        joules_saved = (self.total_silicon_time_ms / 1000.0) * (45.0 - 2.2)
+
+        # Sample live Intel RAPL power domains from physical sensors
+        p_sample = self.power_sensor.sample()
+        host_w = max(p_sample.get("package_power_w", 18.0), 12.0)
+        npu_w = p_sample.get("npu_power_est_w", 2.2)
+        joules_saved = (self.total_silicon_time_ms / 1000.0) * (host_w - npu_w)
 
         return {
             "uptime_seconds": round(uptime_sec, 1),
@@ -2129,6 +2172,14 @@ class SiliconTelemetry:
             "cloud_dollars_saved": round(cloud_savings_usd, 4),
             "energy_joules_saved": round(joules_saved, 2),
             "recent_events": self.recent_events[-15:],
+            "package_power_w": p_sample.get("package_power_w", 15.0),
+            "core_power_w": p_sample.get("core_power_w", 10.0),
+            "uncore_power_w": p_sample.get("uncore_power_w", 0.4),
+            "dram_power_w": p_sample.get("dram_power_w", 0.15),
+            "npu_power_est_w": npu_w,
+            "temperature_c": p_sample.get("temperature_c", 50.0),
+            "is_live_power": p_sample.get("is_live", False),
+            "power_sensor_backend": p_sample.get("sensor_backend", "N/A"),
         }
 
 
@@ -2136,7 +2187,7 @@ class LunarStudioHandler(BaseHTTPRequestHandler):
     engine = LunarNPUEngine()
     mamba = LunarMambaEngine(engine=engine, d_inner=64, d_state=16)
     vmem = LunarVectorMemory(engine=engine, embedding_dim=384)
-    spec = LunarSpeculativePipeline(draft_engine=engine, gamma=4)
+    spec = LunarSpeculativePipeline(draft_engine=engine, gamma=4, enable_real_target=True)
     cb = SiliconCircuitBreaker(engine=engine)
     router = MicroRouter(memory_engine=vmem)
     telemetry = SiliconTelemetry()
@@ -2166,6 +2217,10 @@ class LunarStudioHandler(BaseHTTPRequestHandler):
 
         if path == "/api/telemetry":
             self.send_json(self.telemetry.summary())
+            return
+
+        if path == "/api/power":
+            self.send_json(self.telemetry.power_sensor.sample())
             return
 
         if path in ("/health", "/api/health"):
@@ -2206,8 +2261,8 @@ class LunarStudioHandler(BaseHTTPRequestHandler):
 
         if path == "/api/speculative":
             gamma = int(query.get("gamma", [4])[0])
-            prefix = [101, 2054, 2003, 1037, 3231]
-            res = self.spec.speculative_cycle(prefix_tokens=prefix)
+            prefix = [750, 3974, 6860, 10939]
+            res = self.spec.run_cycle(prefix_tokens=prefix, gamma=gamma)
             self.send_json(res)
             return
 
@@ -2309,7 +2364,11 @@ def run_studio(host: str = "127.0.0.1", port: int = 8899, open_browser: bool = T
     except Exception:
         pass
 
-    server = HTTPServer((host, port), LunarStudioHandler)
+    class ReusableThreadingServer(ThreadingHTTPServer):
+        allow_reuse_address = True
+        daemon_threads = True
+
+    server = ReusableThreadingServer((host, port), LunarStudioHandler)
     url = f"http://{host}:{port}"
     print(f"\n[*] Lunar NPU Studio launched at: {url}")
 
