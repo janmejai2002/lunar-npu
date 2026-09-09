@@ -7,6 +7,7 @@ L2 normalization onto unit hypersphere S^383, and high-performance Top-K similar
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import time
 from pathlib import Path
@@ -209,3 +210,58 @@ class LunarVectorMemory:
     def clear(self) -> None:
         """Clear all stored documents."""
         self.documents.clear()
+
+    def save_to_disk(self, filepath: Union[str, Path]) -> int:
+        """
+        Persist in-memory documents and hyperspherical vectors to a JSON file.
+        Returns the number of saved documents.
+        """
+        p = Path(filepath)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        serializable = []
+        for doc in self.documents:
+            vec = doc["vector"]
+            if isinstance(vec, np.ndarray):
+                vec_list = vec.tolist()
+            else:
+                vec_list = list(vec)
+            serializable.append({
+                "id": doc["id"],
+                "text": doc["text"],
+                "vector": vec_list,
+                "metadata": doc.get("metadata", {}),
+                "latency_ms": doc.get("latency_ms", 0.0),
+            })
+        with open(p, "w", encoding="utf-8") as f:
+            json.dump(serializable, f, indent=2)
+        return len(serializable)
+
+    def load_from_disk(self, filepath: Union[str, Path], merge: bool = False) -> int:
+        """
+        Load persisted documents and hyperspherical vectors from a JSON file.
+        If merge=False, replaces current documents.
+        Returns the number of loaded documents.
+        """
+        p = Path(filepath)
+        if not p.exists():
+            return 0
+        with open(p, "r", encoding="utf-8") as f:
+            raw_docs = json.load(f)
+        loaded = []
+        for d in raw_docs:
+            loaded.append({
+                "id": d["id"],
+                "text": d["text"],
+                "vector": np.array(d["vector"], dtype=np.float32),
+                "metadata": d.get("metadata", {}),
+                "latency_ms": d.get("latency_ms", 0.0),
+            })
+        if merge:
+            existing_ids = {doc["id"] for doc in self.documents}
+            for d in loaded:
+                if d["id"] not in existing_ids:
+                    self.documents.append(d)
+        else:
+            self.documents = loaded
+        return len(self.documents)
+
