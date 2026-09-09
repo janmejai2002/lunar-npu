@@ -109,6 +109,10 @@ class LunarMambaEngine:
         p95_lat = float(np.percentile(latencies, 95))
         p99_lat = float(np.percentile(latencies, 99))
         throughput = 1000.0 / mean_lat if mean_lat > 0 else 0.0
+        total_time = float(np.sum(latencies))
+        state_bytes = int(self.state.nbytes)
+        equiv_kv_bytes = num_steps * 16 * 8 * 64 * 2 * 2
+        savings_ratio = round(equiv_kv_bytes / max(state_bytes, 1), 1)
 
         return {
             "device": self.engine.device,
@@ -117,4 +121,9 @@ class LunarMambaEngine:
             "p95_step_latency_ms": p95_lat,
             "p99_step_latency_ms": p99_lat,
             "tokens_per_second": throughput,
+            "total_wall_time_ms": round(total_time, 2),
+            "state_bytes": state_bytes,
+            "state_shape": list(self.state.shape),
+            "transformer_kv_cache_bytes": equiv_kv_bytes,
+            "memory_savings_ratio": savings_ratio,
         }
