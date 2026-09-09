@@ -471,40 +471,49 @@ HTML_PAGE = """<!DOCTYPE html>
       <div class="grid-3">
         <div class="card">
           <div class="card-header">
-            <span class="card-title">Peak Compute</span>
-            <span class="badge-ok">PHYSICAL SILICON</span>
+            <span class="card-title">Intel AI Boost NPU</span>
+            <span class="badge-ok">47 TOPS SILICON</span>
           </div>
           <div class="stat-hero" style="color: var(--accent-water);">47.0 <span class="stat-unit">TOPS</span></div>
-          <div class="stat-label">INT8 Matrix Engine Throughput</div>
-          <div style="margin-top: 1rem; color: var(--text-muted); font-size: 0.82rem;">
-            Driver Version: <strong id="drvVer" style="color:#fff;">1004723</strong><br>
-            Turbo Mode: <strong style="color:var(--accent-moss);">ENABLED (NPU_TURBO=YES)</strong>
+          <div class="stat-label">Dedicated Neural Matrix Engine</div>
+          <div style="margin-top: 0.75rem; color: var(--text-muted); font-size: 0.82rem; line-height: 1.4;">
+            Physical on-die NPU silicon accelerating local vector embeddings, routing, and memory at sub-watt power without waking host CPU cores.
+          </div>
+          <div style="margin-top: 0.75rem; padding-top: 0.5rem; border-top: 1px solid var(--card-border-subtle); display: flex; justify-content: space-between; align-items: center; font-size: 0.78rem;">
+            <span>Driver: <strong id="drvVer" style="color:#fff;">1004723</strong></span>
+            <span style="color: var(--accent-moss); font-weight: 600;">⚡ NPU_TURBO = YES</span>
           </div>
         </div>
 
-        <div class="card">
+        <div class="card" style="cursor: pointer;" onclick="switchTab('tab-mamba')" title="Click to test Mamba SSM generation">
           <div class="card-header">
-            <span class="card-title">Recurrent Latency</span>
-            <span class="badge-ok">ZERO KV-CACHE</span>
+            <span class="card-title">Mamba SSM Recurrence</span>
+            <span class="badge-ok">O(1) BOUNDED RAM</span>
           </div>
           <div class="stat-hero" style="color: var(--accent-indigo);" id="heroMambaLat">0.197 <span class="stat-unit">ms</span></div>
           <div class="stat-label">Linear State Update (<span class="math-eq"><i>h</i><sub><i>t</i></sub> = <span class="math-bar"><i>A</i></span><i>h</i><sub><i>t</i>−1</sub> + <span class="math-bar"><i>B</i></span><i>x</i><sub><i>t</i></sub></span>)</div>
-          <div style="margin-top: 1rem; color: var(--text-muted); font-size: 0.82rem;">
-            Throughput: <strong id="heroMambaTps" style="color:#fff;">5,068 tok/s</strong><br>
-            Memory Complexity: <strong style="color:var(--accent-indigo);">O(1) Bounded State</strong>
+          <div style="margin-top: 0.75rem; color: var(--text-muted); font-size: 0.82rem; line-height: 1.4;">
+            Ultra-fast per-token recurrent step. Unlike Transformers whose memory blows up with context length, Mamba state stays strictly locked at <strong>64 × 16</strong> floats.
+          </div>
+          <div style="margin-top: 0.75rem; padding-top: 0.5rem; border-top: 1px solid var(--card-border-subtle); display: flex; justify-content: space-between; align-items: center; font-size: 0.78rem;">
+            <span>Speed: <strong id="heroMambaTps" style="color:#fff;">5,068 tok/s</strong></span>
+            <span style="color: var(--accent-indigo); text-decoration: underline;">Test Mamba ➔</span>
           </div>
         </div>
 
-        <div class="card">
+        <div class="card" style="cursor: pointer;" onclick="switchTab('tab-breaker')" title="Click to test the Command Safety Firewall">
           <div class="card-header">
-            <span class="card-title">Circuit Gatekeeper</span>
-            <span class="badge-ok">MICROSECOND DFA</span>
+            <span class="card-title">Command Safety Firewall</span>
+            <span class="badge-ok">INSTANT 2.2 µs AUDIT</span>
           </div>
           <div class="stat-hero" style="color: var(--accent-moss);">2.20 <span class="stat-unit">µs</span></div>
-          <div class="stat-label">Deterministic Kernel Guardrail</div>
-          <div style="margin-top: 1rem; color: var(--text-muted); font-size: 0.82rem;">
-            Scan Rate: <strong style="color:#fff;">455,270 scans/sec</strong><br>
-            Syscall Protection: <strong style="color:var(--accent-moss);">100% Deterministic</strong>
+          <div class="stat-label">Pre-Execution Shell & DB Inspection</div>
+          <div style="margin-top: 0.75rem; color: var(--text-muted); font-size: 0.82rem; line-height: 1.4;">
+            Audits proposed terminal commands before execution. Blocks catastrophic commands (<code style="color:#ef4444;">rm -rf</code>, <code style="color:#ef4444;">DROP TABLE</code>, <code style="color:#ef4444;">format</code>) in 2.2 microseconds with <strong>zero perceptible delay</strong>.
+          </div>
+          <div style="margin-top: 0.75rem; padding-top: 0.5rem; border-top: 1px solid var(--card-border-subtle); display: flex; justify-content: space-between; align-items: center; font-size: 0.78rem;">
+            <span style="color: var(--accent-moss); font-weight: 600;">✓ 455,270 scans/sec</span>
+            <span style="color: var(--accent-indigo); text-decoration: underline;">Test a command ➔</span>
           </div>
         </div>
       </div>
