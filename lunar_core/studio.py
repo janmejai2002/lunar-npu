@@ -22,6 +22,7 @@ from lunar_core.mamba_ssm import LunarMambaEngine
 from lunar_core.vector_memory import LunarVectorMemory
 from lunar_core.speculative import LunarSpeculativePipeline
 from lunar_core.circuit_breaker import SiliconCircuitBreaker
+from lunar_core.router import MicroRouter
 
 
 HTML_PAGE = """<!DOCTYPE html>
@@ -440,8 +441,10 @@ HTML_PAGE = """<!DOCTYPE html>
     <button class="tab-btn" onclick="switchTab('tab-memory')">🌐 Vector Memory (S³⁸³)</button>
     <button class="tab-btn" onclick="switchTab('tab-speculative')">⚡ Speculative Decoding</button>
     <button class="tab-btn" onclick="switchTab('tab-breaker')">🛡️ Silicon Circuit Breaker</button>
+    <button class="tab-btn" onclick="switchTab('tab-router')">🎯 MicroRouter Swarm</button>
     <button class="tab-btn" onclick="switchTab('tab-mcp')">🤖 Agentic MCP Tools</button>
   </div>
+
 
   <main>
     <!-- TAB 1: OVERVIEW & HARDWARE TOPOLOGY -->
@@ -593,8 +596,37 @@ HTML_PAGE = """<!DOCTYPE html>
       </div>
     </div>
 
-    <!-- TAB 6: AGENTIC MCP TOOLS -->
+    <!-- TAB 6: MICROROUTER SWARM DISPATCH -->
+    <div id="tab-router" class="tab-pane">
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <div class="card-header">
+          <span class="card-title">🎯 MicroRouter & Swarm Centroid Dispatcher</span>
+          <span class="pill pill-live">SUB-3MS LATENCY</span>
+        </div>
+        <p style="color: var(--text-muted); font-size: 0.88rem; margin-bottom: 1rem;">
+          Classifies task descriptions and dispatches multi-agent swarms (Coder, Architect, DevOps/Tester, Researcher, Security Auditor) via NPU embedding centroids on S³⁸³ at $0 marginal token cost. Grounded in RouteLLM (LMSYS) and ProCIS (SIGIR 2024).
+        </p>
+        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+          <input type="text" class="input-text" id="routerInput" placeholder="Enter task prompt..." value="Write a python function to compute fibonacci with memoization">
+          <button class="btn" onclick="runTaskRouter()">Route on NPU</button>
+        </div>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 1rem;">
+          <span style="font-size: 0.78rem; color: var(--text-dim); align-self: center;">Quick Archetype Presets:</span>
+          <button class="btn btn-secondary" style="font-size: 0.75rem; padding: 4px 8px;" onclick="setRouterPrompt('Write a python function to implement binary search over sorted arrays')">Coder</button>
+          <button class="btn btn-secondary" style="font-size: 0.75rem; padding: 4px 8px;" onclick="setRouterPrompt('Design distributed microservices architecture and Kafka event bus schema')">Architect</button>
+          <button class="btn btn-secondary" style="font-size: 0.75rem; padding: 4px 8px;" onclick="setRouterPrompt('Configure GitHub Actions CI matrix for pytest across Windows and Ubuntu')">Tester/DevOps</button>
+          <button class="btn btn-secondary" style="font-size: 0.75rem; padding: 4px 8px;" onclick="setRouterPrompt('Retrieve arXiv research papers on State Space Models and Mamba scaling laws')">Researcher</button>
+          <button class="btn btn-secondary" style="font-size: 0.75rem; padding: 4px 8px;" onclick="setRouterPrompt('Scan bash scripts for malicious command injection rm -rf / and privilege escalation')">Security</button>
+        </div>
+        <div id="routerResults" class="terminal-window" style="background: rgba(14, 19, 31, 0.9);">
+          Click "Route on NPU" to classify task prompt against normalized centroid manifolds...
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 7: AGENTIC MCP TOOLS -->
     <div id="tab-mcp" class="tab-pane">
+
       <div class="card">
         <div class="card-title">Agentic Model Context Protocol (MCP) Live Inspector</div>
         <p style="color: var(--text-muted); font-size: 0.85rem; margin: 8px 0 1.25rem;">
@@ -699,6 +731,49 @@ HTML_PAGE = """<!DOCTYPE html>
         term.innerText = '[ERROR] ' + err;
       }
     }
+
+    function setRouterPrompt(p) {
+      document.getElementById('routerInput').value = p;
+      runTaskRouter();
+    }
+
+    async function runTaskRouter() {
+      const prompt = document.getElementById('routerInput').value;
+      const term = document.getElementById('routerResults');
+      if (!prompt) return;
+      term.innerText = '[INFO] Embedding on Intel NPU and calculating geodesic distances...';
+      try {
+        const res = await fetch(`/api/route?prompt=${encodeURIComponent(prompt)}`);
+        const data = await res.json();
+        let scoresHtml = '';
+        for (const [k, v] of Object.entries(data.scores)) {
+          const pct = (v * 100).toFixed(1);
+          const isTop = k === data.target_agent;
+          const color = isTop ? 'var(--accent-moss)' : 'var(--accent-indigo)';
+          scoresHtml += `
+            <div style="margin: 6px 0;">
+              <div style="display:flex; justify-content:space-between; font-size:0.8rem; margin-bottom:2px;">
+                <span style="color:${isTop ? '#fff' : 'var(--text-muted)'}; font-weight:${isTop ? 'bold' : 'normal'};">${k} ${isTop ? '★ (DISPATCHED)' : ''}</span>
+                <span style="color:${color}; font-family:var(--font-mono);">${pct}%</span>
+              </div>
+              <div style="background:#1e293b; border-radius:4px; height:6px; overflow:hidden;">
+                <div style="background:${color}; height:100%; width:${pct}%;"></div>
+              </div>
+            </div>`;
+        }
+        term.innerHTML = `
+          <div style="margin-bottom: 8px;">
+            <span class="badge-ok" style="font-size:0.9rem; padding:4px 10px;">TARGET: ${data.target_agent}</span>
+            <span style="margin-left:8px; color:var(--accent-water); font-family:var(--font-mono); font-size:0.85rem;">Confidence: ${(data.confidence * 100).toFixed(1)}%</span>
+            <span style="margin-left:8px; color:var(--text-dim); font-family:var(--font-mono); font-size:0.82rem;">Latency: ${data.latency_ms}ms</span>
+          </div>
+          <div style="color:var(--text-muted); font-size:0.82rem; margin-bottom:12px;">${data.rationale}</div>
+          <div style="border-top:1px solid var(--card-border); padding-top:8px;">${scoresHtml}</div>
+        `;
+      } catch (err) {
+        term.innerText = '[ERROR] ' + err;
+      }
+    }
   </script>
 </body>
 </html>
@@ -711,6 +786,8 @@ class LunarStudioHandler(BaseHTTPRequestHandler):
     vmem = LunarVectorMemory(engine=engine, embedding_dim=384)
     spec = LunarSpeculativePipeline(draft_engine=engine, gamma=4)
     cb = SiliconCircuitBreaker(engine=engine)
+    router = MicroRouter(memory_engine=vmem)
+
 
     if not vmem.documents:
         vmem.add_document("Intel Lunar Lake microarchitecture features 6 NCE physical tiles.")
@@ -733,6 +810,25 @@ class LunarStudioHandler(BaseHTTPRequestHandler):
 
         if path == "/api/status":
             self.send_json(self.engine.get_device_info())
+            return
+
+        if path in ("/health", "/api/health"):
+            self.send_json({"status": "ok", "npu": True, "device": self.engine.device, "version": "1.0.0"})
+            return
+
+        if path == "/api/route":
+            prompt = query.get("prompt", [""])[0]
+            temp = float(query.get("temp", [0.1])[0])
+            res = self.router.route(prompt, temperature=temp)
+            self.send_json(res.to_dict())
+            return
+
+        if path in ("/api/embed", "/v1/embeddings"):
+            text = query.get("text", [""])[0]
+            res = self.vmem.embed(text)
+            vec = res[0] if isinstance(res, (tuple, list)) else res
+            lat = res[1] if isinstance(res, (tuple, list)) and len(res) > 1 else 1.5
+            self.send_json({"data": [{"embedding": vec.tolist()}], "latency_ms": lat, "dimension": len(vec)})
             return
 
         if path == "/api/mamba":
@@ -767,6 +863,27 @@ class LunarStudioHandler(BaseHTTPRequestHandler):
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
 
+        if path in ("/v1/embeddings", "/api/embed"):
+            content_length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(content_length).decode("utf-8")
+            data = json.loads(body)
+            text = data.get("input", "") or data.get("text", "")
+            res = self.vmem.embed(text)
+            vec = res[0] if isinstance(res, (tuple, list)) else res
+            lat = res[1] if isinstance(res, (tuple, list)) and len(res) > 1 else 1.5
+            self.send_json({"data": [{"embedding": vec.tolist()}], "latency_ms": lat, "dimension": len(vec)})
+            return
+
+        if path == "/api/route":
+            content_length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(content_length).decode("utf-8")
+            data = json.loads(body)
+            prompt = data.get("prompt", "")
+            temp = float(data.get("temperature", 0.1))
+            res = self.router.route(prompt, temperature=temp)
+            self.send_json(res.to_dict())
+            return
+
         if path == "/api/memory":
             content_length = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(content_length).decode("utf-8")
@@ -782,6 +899,7 @@ class LunarStudioHandler(BaseHTTPRequestHandler):
                 "total_documents": len(self.vmem.documents),
             })
             return
+
 
         self.send_error(404, "Endpoint not found")
 

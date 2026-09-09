@@ -19,6 +19,7 @@ from lunar_core.engine import LunarNPUEngine
 from lunar_core.mamba_ssm import LunarMambaEngine
 from lunar_core.vector_memory import LunarVectorMemory
 from lunar_core.circuit_breaker import SiliconCircuitBreaker
+from lunar_core.router import MicroRouter
 
 
 TOOLS_DEFINITIONS = [
@@ -100,7 +101,28 @@ TOOLS_DEFINITIONS = [
             "additionalProperties": False,
         },
     },
+    {
+        "name": "lunar_route_task",
+        "description": "Classify task prompt and route to optimal agent archetype (CODER, ARCHITECT, TESTER_DEVOPS, RESEARCHER, SECURITY_AUDITOR) in <3ms on NPU.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "prompt": {
+                    "type": "string",
+                    "description": "The task prompt or user request to classify and route.",
+                },
+                "temperature": {
+                    "type": "number",
+                    "description": "Temperature scaling for softmax confidence calibration (default 0.1).",
+                    "default": 0.1,
+                },
+            },
+            "required": ["prompt"],
+            "additionalProperties": False,
+        },
+    },
 ]
+
 
 
 class LunarMCPServer:
@@ -111,6 +133,7 @@ class LunarMCPServer:
         self.mamba = LunarMambaEngine(engine=self.engine, d_inner=64, d_state=16)
         self.vmem = LunarVectorMemory(engine=self.engine, embedding_dim=384)
         self.cb = SiliconCircuitBreaker(engine=self.engine)
+        self.router = MicroRouter(memory_engine=self.vmem)
 
         # Seed default architectural memory if empty
         if not self.vmem.documents:
@@ -224,8 +247,15 @@ class LunarMCPServer:
                 "latency_ms": entry["latency_ms"],
             }, indent=2)
 
+        elif name == "lunar_route_task":
+            prompt = args["prompt"]
+            temp = float(args.get("temperature", 0.1))
+            decision = self.router.route(prompt, temperature=temp)
+            return json.dumps(decision.to_dict(), indent=2)
+
         else:
             raise ValueError(f"Unknown tool: {name}")
+
 
     def run_stdio(self) -> None:
         """Run standard I/O communication loop."""

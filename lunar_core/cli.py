@@ -27,6 +27,7 @@ from lunar_core.engine import LunarNPUEngine
 from lunar_core.mamba_ssm import LunarMambaEngine
 from lunar_core.speculative import LunarSpeculativePipeline
 from lunar_core.vector_memory import LunarVectorMemory
+from lunar_core.router import MicroRouter
 
 
 def _output(data: Any, json_mode: bool):
@@ -131,6 +132,22 @@ def audit_command(ctx: click.Context, command_str: str, json_mode: bool):
     cb = SiliconCircuitBreaker(engine=engine)
     res = cb.audit_command(command_str)
     _output(res, json_mode)
+
+
+@cli.command("route")
+@click.argument("prompt")
+@click.option("--temperature", default=0.1, help="Softmax temperature scaling")
+@click.option("--json", "json_mode", is_flag=True, help="Output machine-readable JSON")
+@click.pass_context
+def route_task(ctx: click.Context, prompt: str, temperature: float, json_mode: bool):
+    """Route task prompt to specialized agent archetype in <3ms on NPU."""
+    engine: LunarNPUEngine = ctx.obj["engine"]
+    json_mode = json_mode or ctx.obj.get("json_mode", False)
+    vmem = LunarVectorMemory(engine=engine)
+    router = MicroRouter(memory_engine=vmem)
+    decision = router.route(prompt, temperature=temperature)
+    _output(decision.to_dict(), json_mode)
+
 
 
 @cli.group("bugs")

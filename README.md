@@ -255,7 +255,20 @@ lunar audit "rm -rf /"
   latency_ms              : 0.0044 ms (4.4 µs)
 ```
 
+### 5. Route Agentic Swarm Tasks with MicroRouter
+```bash
+lunar route "Design distributed microservices architecture and Kafka event bus schema"
+```
+```yaml
+  target_agent            : ARCHITECT
+  confidence              : 0.6801
+  latency_ms              : 3.87 ms
+  scores                  : {'CODER': 0.0604, 'ARCHITECT': 0.6801, 'TESTER_DEVOPS': 0.0916, 'RESEARCHER': 0.1085, 'SECURITY_AUDITOR': 0.0595}
+  rationale               : Mapped prompt to 'ARCHITECT' manifold with 68.0% confidence on Lunar Lake NPU in 3.87ms.
+```
+
 ---
+
 
 ## 💻 Python SDK Quickstart
 
@@ -303,11 +316,20 @@ verdict = cb.audit("DROP DATABASE production;")
 # {'verdict': 'BLOCKED', 'reason': 'Violated deterministic safety rule: DROP DATABASE', 'latency_ms': 0.0038}
 ```
 
+### 5. Sub-3ms Centroid Task Routing (MicroRouter)
+```python
+from lunar_core.router import MicroRouter
+
+router = MicroRouter(memory_engine=vmem)
+decision = router.route("Implement red-black tree insertion algorithm in Python")
+print(f"Dispatched to: {decision.target_agent} ({decision.confidence*100:.1f}% confidence in {decision.latency_ms:.2f}ms)")
+```
+
 ---
 
 ## 🖥️ Lunar Studio (Web HUD)
 
-Lunar includes an interactive, zero-dependency local browser dashboard for inspecting silicon hardware, running interactive Mamba step sweeps, testing vector similarity queries, and evaluating circuit breaker guardrails.
+Lunar includes an interactive, zero-dependency local browser dashboard for inspecting silicon hardware, running interactive Mamba step sweeps, testing vector similarity queries, routing agentic tasks, and evaluating circuit breaker guardrails.
 
 Launch with one command:
 ```bash
@@ -322,6 +344,8 @@ Open your browser at `http://127.0.0.1:8899` to interact with:
 - **Interactive Mamba Step Generator**: Watch live token generation at 5,000+ tok/s.
 - **Hypersphere Vector Search**: Interactive semantic search over edge memory.
 - **Live Circuit Breaker Console**: Test arbitrary shell commands against the DFA safety kernel.
+- **MicroRouter Swarm Dispatcher**: Real-time semantic task classification and confidence distribution.
+
 
 ---
 
