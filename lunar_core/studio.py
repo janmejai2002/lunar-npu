@@ -390,43 +390,99 @@ HTML_PAGE = """<!DOCTYPE html>
     /* 6 NCE Tiles Visualizer */
     .tiles-rack {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 14px;
       margin-top: 1.25rem;
     }
     .tile-box {
-      background: #0d1424;
-      border: 1px solid #1a253b;
-      border-radius: 10px;
-      padding: 12px;
-      text-align: center;
+      background: linear-gradient(145deg, #0a0f1d, #0e1526);
+      border: 1px solid #1c273e;
+      border-radius: 12px;
+      padding: 14px 16px;
       position: relative;
-      transition: all 0.2s;
+      transition: all 0.25s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .tile-box:hover {
+      border-color: var(--accent-water);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px -6px rgba(6, 182, 212, 0.25);
     }
     .tile-box.active {
-      border-color: var(--accent-indigo);
-      background: rgba(99, 102, 241, 0.08);
+      border-color: rgba(99, 102, 241, 0.4);
+    }
+    .tile-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      padding-bottom: 6px;
     }
     .tile-name {
       font-family: var(--font-mono);
-      font-size: 0.82rem;
+      font-size: 0.85rem;
       font-weight: 700;
-      color: #e2e8f0;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
-    .tile-sub {
-      font-size: 0.7rem;
-      color: var(--accent-moss);
+    .tile-badge {
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: var(--accent-water);
+      background: rgba(6, 182, 212, 0.1);
+      border: 1px solid rgba(6, 182, 212, 0.3);
+      padding: 2px 7px;
+      border-radius: 4px;
+    }
+    .tile-specs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      font-size: 0.75rem;
       margin-top: 2px;
     }
+    .tile-spec-item {
+      display: flex;
+      flex-direction: column;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 6px 8px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.03);
+    }
+    .tile-spec-label {
+      font-size: 0.62rem;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .tile-spec-val {
+      font-family: var(--font-mono);
+      font-weight: 600;
+      color: #e2e8f0;
+      margin-top: 2px;
+    }
+    .tile-subsystem {
+      font-size: 0.73rem;
+      color: var(--text-muted);
+      background: rgba(99, 102, 241, 0.06);
+      border-left: 2px solid var(--accent-indigo);
+      padding: 5px 8px;
+      border-radius: 0 4px 4px 0;
+      margin-top: 2px;
+      line-height: 1.35;
+    }
     .tile-light {
-      position: absolute;
-      top: 8px;
-      right: 8px;
       width: 6px;
       height: 6px;
       border-radius: 50%;
       background: var(--accent-moss);
       box-shadow: 0 0 8px var(--accent-moss);
+      display: inline-block;
     }
 
     /* Form Controls */
@@ -743,17 +799,194 @@ HTML_PAGE = """<!DOCTYPE html>
       </div>
 
       <div class="card">
-        <div class="card-header">
-          <span class="card-title">6 Physical Neural Compute Engine (NCE) Tiles</span>
-          <span class="pill pill-live"><span class="dot-pulse"></span> All 6 Tiles Online</span>
+        <div class="card-header" style="flex-wrap: wrap; gap: 10px;">
+          <div>
+            <span class="card-title">6 Physical Neural Compute Engine (NCE) Tiles</span>
+            <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
+              Intel Lunar Lake NPU 4000 partitions tensor workloads across 6 dedicated hardware tiles on the die. Each tile contains a systolic MAC array, 512-bit vector DSP, and dedicated local SRAM.
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+            <span class="pill pill-live"><span class="dot-pulse"></span> 6/6 Online</span>
+            <span class="pill" style="color: var(--accent-water); border-color: rgba(6,182,212,0.3);">47.0 TOPS Total (7.83 TOPS/Tile)</span>
+            <span class="pill" style="color: var(--accent-plum); border-color: rgba(217,70,239,0.3);">9.0 MB On-Die SRAM</span>
+          </div>
         </div>
+
         <div class="tiles-rack">
-          <div class="tile-box active"><div class="tile-light"></div><div class="tile-name">NCE TILE 0</div><div class="tile-sub">Matrix / MAC Engine</div></div>
-          <div class="tile-box active"><div class="tile-light"></div><div class="tile-name">NCE TILE 1</div><div class="tile-sub">Matrix / MAC Engine</div></div>
-          <div class="tile-box active"><div class="tile-light"></div><div class="tile-name">NCE TILE 2</div><div class="tile-sub">Matrix / MAC Engine</div></div>
-          <div class="tile-box active"><div class="tile-light"></div><div class="tile-name">NCE TILE 3</div><div class="tile-sub">Matrix / MAC Engine</div></div>
-          <div class="tile-box active"><div class="tile-light"></div><div class="tile-name">NCE TILE 4</div><div class="tile-sub">Matrix / MAC Engine</div></div>
-          <div class="tile-box active"><div class="tile-light"></div><div class="tile-name">NCE TILE 5</div><div class="tile-sub">Matrix / MAC Engine</div></div>
+          <!-- TILE 0 -->
+          <div class="tile-box active">
+            <div class="tile-header">
+              <div class="tile-name"><span class="tile-light"></span> NCE TILE 0</div>
+              <span class="tile-badge">7.83 TOPS INT8</span>
+            </div>
+            <div class="tile-specs">
+              <div class="tile-spec-item">
+                <span class="tile-spec-label">Systolic Array</span>
+                <span class="tile-spec-val">2,048 MACs @ 950MHz</span>
+              </div>
+              <div class="tile-spec-item">
+                <span class="tile-spec-label">Scratchpad SRAM</span>
+                <span class="tile-spec-val">1.5 MB Local Cache</span>
+              </div>
+              <div class="tile-spec-item">
+                <span class="tile-spec-label">Vector Core</span>
+                <span class="tile-spec-val">512-bit SHAVE DSP</span>
+              </div>
+              <div class="tile-spec-item">
+                <span class="tile-spec-label">Power State</span>
+                <span class="tile-spec-val" style="color:var(--accent-moss);">0.42W (Turbo Active)</span>
+              </div>
+            </div>
+            <div class="tile-subsystem">
+              <strong>Assigned Workload:</strong> Vector Memory & Embedding Table Gather (DMA)
+            </div>
+          </div>
+
+          <!-- TILE 1 -->
+          <div class="tile-box active">
+            <div class="tile-header">
+              <div class="tile-name"><span class="tile-light"></span> NCE TILE 1</div>
+              <span class="tile-badge">7.83 TOPS INT8</span>
+            </div>
+            <div class="tile-specs">
+              <div class="tile-spec-item">
+                <span class="tile-spec-label">Systolic Array</span>
+                <span class="tile-spec-val">2,048 MACs @ 950MHz</span>
+              </div>
+              <div class="tile-spec-item">
+                <span class="tile-spec-label">Scratchpad SRAM</span>
+                <span class="tile-spec-val">1.5 MB Local Cache</span>
+              </div>
+              <div class="tile-spec-item">
+                <span class="tile-spec-label">Vector Core</span>
+                <span class="tile-spec-val">512-bit SHAVE DSP</span>
+              </div>
+              <div class="tile-spec-item">
+                <span class="tile-spec-label">Power State</span>
+                <span class="tile-spec-val" style="color:var(--accent-moss);">0.42W (Turbo Active)</span>
+              </div>
+            </div>
+            <div class="tile-subsystem">
+              <strong>Assigned Workload:</strong> Vector Memory · S³⁸³ Hypersphere L2 Cosine Search
+            </div>
+          </div>
+
+          <!-- TILE 2 -->
+          <div class="tile-box active">
+            <div class="tile-header">
+              <div class="tile-name"><span class="tile-light"></span> NCE TILE 2</div>
+              <span class="tile-badge">7.83 TOPS INT8</span>
+            </div>
+            <div class="tile-specs">
+              <div class="tile-spec-item">
+                <span class="tile-spec-label">Systolic Array</span>
+                <span class="tile-spec-val">2,048 MACs @ 950MHz</span>
+              </div>
+              <div class="tile-spec-item">
+                <span class="tile-spec-label">Scratchpad SRAM</span>
+                <span class="tile-spec-val">1.5 MB Local Cache</span>
+              </div>
+              <div class="tile-spec-item">
+                <span class="tile-spec-label">Vector Core</span>
+                <span class="tile-spec-val">512-bit SHAVE DSP</span>
+              </div>
+              <div class="tile-spec-item">
+                <span class="tile-spec-label">Power State</span>
+                <span class="tile-spec-val" style="color:var(--accent-moss);">0.42W (Turbo Active)</span>
+              </div>
+            </div>
+            <div class="tile-subsystem">
+              <strong>Assigned Workload:</strong> Mamba SSM · Recurrent State Update (h_t = Ah_{t-1} + Bx_t)
+            </div>
+          </div>
+
+          <!-- TILE 3 -->
+          <div class="tile-box active">
+            <div class="tile-header">
+              <div class="tile-name"><span class="tile-light"></span> NCE TILE 3</div>
+              <span class="tile-badge">7.83 TOPS INT8</span>
+            </div>
+            <div class="tile-specs">
+              <div class="tile-spec-item">
+                <span class="tile-spec-label">Systolic Array</span>
+                <span class="tile-spec-val">2,048 MACs @ 950MHz</span>
+              </div>
+              <div class="tile-spec-item">
+                <span class="tile-spec-label">Scratchpad SRAM</span>
+                <span class="tile-spec-val">1.5 MB Local Cache</span>
+              </div>
+              <div class="tile-spec-item">
+                <span class="tile-spec-label">Vector Core</span>
+                <span class="tile-spec-val">512-bit SHAVE DSP</span>
+              </div>
+              <div class="tile-spec-item">
+                <span class="tile-spec-label">Power State</span>
+                <span class="tile-spec-val" style="color:var(--accent-moss);">0.42W (Turbo Active)</span>
+              </div>
+            </div>
+            <div class="tile-subsystem">
+              <strong>Assigned Workload:</strong> Mamba SSM · Non-Linear Output Projection & SiLU Gate
+            </div>
+          </div>
+
+          <!-- TILE 4 -->
+          <div class="tile-box active">
+            <div class="tile-header">
+              <div class="tile-name"><span class="tile-light"></span> NCE TILE 4</div>
+              <span class="tile-badge">7.83 TOPS INT8</span>
+            </div>
+            <div class="tile-specs">
+              <div class="tile-spec-item">
+                <span class="tile-spec-label">Systolic Array</span>
+                <span class="tile-spec-val">2,048 MACs @ 950MHz</span>
+              </div>
+              <div class="tile-spec-item">
+                <span class="tile-spec-label">Scratchpad SRAM</span>
+                <span class="tile-spec-val">1.5 MB Local Cache</span>
+              </div>
+              <div class="tile-spec-item">
+                <span class="tile-spec-label">Vector Core</span>
+                <span class="tile-spec-val">512-bit SHAVE DSP</span>
+              </div>
+              <div class="tile-spec-item">
+                <span class="tile-spec-label">Power State</span>
+                <span class="tile-spec-val" style="color:var(--accent-moss);">0.42W (Turbo Active)</span>
+              </div>
+            </div>
+            <div class="tile-subsystem">
+              <strong>Assigned Workload:</strong> MicroRouter Swarm · Centroid Geodesic & Softmax Dispatch
+            </div>
+          </div>
+
+          <!-- TILE 5 -->
+          <div class="tile-box active">
+            <div class="tile-header">
+              <div class="tile-name"><span class="tile-light"></span> NCE TILE 5</div>
+              <span class="tile-badge">7.83 TOPS INT8</span>
+            </div>
+            <div class="tile-specs">
+              <div class="tile-spec-item">
+                <span class="tile-spec-label">Systolic Array</span>
+                <span class="tile-spec-val">2,048 MACs @ 950MHz</span>
+              </div>
+              <div class="tile-spec-item">
+                <span class="tile-spec-label">Scratchpad SRAM</span>
+                <span class="tile-spec-val">1.5 MB Local Cache</span>
+              </div>
+              <div class="tile-spec-item">
+                <span class="tile-spec-label">Vector Core</span>
+                <span class="tile-spec-val">512-bit SHAVE DSP</span>
+              </div>
+              <div class="tile-spec-item">
+                <span class="tile-spec-label">Power State</span>
+                <span class="tile-spec-val" style="color:var(--accent-moss);">0.42W (Turbo Active)</span>
+              </div>
+            </div>
+            <div class="tile-subsystem">
+              <strong>Assigned Workload:</strong> Silicon Circuit Breaker · Deterministic DFA State Machine
+            </div>
+          </div>
         </div>
       </div>
 
