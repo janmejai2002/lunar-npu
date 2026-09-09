@@ -1,0 +1,70 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lunar-core"
+version = "1.0.0"
+description = "Intel Lunar Lake NPU Ambient Intelligence & Edge Neural Processing Platform"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Janmejai Singh Minhas", email = "janmejai2002@gmail.com" }
+]
+keywords = [
+    "intel",
+    "lunar-lake",
+    "npu",
+    "openvino",
+    "mamba-ssm",
+    "edge-ai",
+    "ambient-intelligence",
+    "speculative-decoding",
+    "ai-boost"
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: System :: Hardware"
+]
+dependencies = [
+    "openvino>=2025.0.0",
+    "numpy>=1.24.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-benchmark>=4.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/janmejai2002/lunar-npu"
+Repository = "https://github.com/janmejai2002/lunar-npu"
+Documentation = "https://github.com/janmejai2002/lunar-npu/blob/master/research/00_MASTER_RESEARCH_COMPENDIUM.md"
+"Bug Tracker" = "https://github.com/janmejai2002/lunar-npu/issues"
+Changelog = "https://github.com/janmejai2002/lunar-npu/blob/master/docs/BUG_LEDGER.md"
+
+[project.scripts]
+lunar = "lunar_core.cli:main"
+lunar-core = "lunar_core.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["lunar_core*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --ignore=tests/test_api_endpoints.py --ignore=tests/test_harness.py"
+

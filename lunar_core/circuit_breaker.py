@@ -44,6 +44,10 @@ class SiliconCircuitBreaker:
         self.hazard_threshold = hazard_threshold
         self.audit_log: List[Dict[str, Any]] = []
 
+    def audit(self, command_str: str) -> Dict[str, Any]:
+        """Convenience alias for audit_command."""
+        return self.audit_command(command_str)
+
     def audit_command(self, command_str: str) -> Dict[str, Any]:
         """
         Audits a proposed shell command or tool action.

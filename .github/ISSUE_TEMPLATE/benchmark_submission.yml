@@ -1,0 +1,31 @@
+name: Benchmark Submission
+description: Submit physical benchmark results from your Intel NPU hardware
+title: "[BENCHMARK]: "
+labels: ["benchmarks"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Help build the community silicon atlas! Run `python benchmarks/run_benchmarks.py` and paste the generated Markdown output below.
+  - type: input
+    id: cpu_model
+    attributes:
+      label: Processor Model
+      placeholder: "e.g., Intel Core Ultra 7 256V (Lunar Lake) / Intel Core Ultra 9 288V"
+    validations:
+      required: true
+  - type: input
+    id: npu_driver
+    attributes:
+      label: NPU Driver Version
+      placeholder: "e.g., 1004723"
+    validations:
+      required: true
+  - type: textarea
+    id: benchmark_output
+    attributes:
+      label: Benchmark Results (Markdown Output)
+      description: Paste the Markdown table printed by `python benchmarks/run_benchmarks.py`
+      render: markdown
+    validations:
+      required: true

@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use Lunar NPU in your academic research, industrial benchmarking, or hardware evaluations, please cite it as below."
+authors:
+  - family-names: "Minhas"
+    given-names: "Janmejai Singh"
+    affiliation: "Lunar NPU Core Research"
+title: "Lunar: Ambient Intelligence and Edge Neural Processing Platform on Intel Lunar Lake NPU"
+version: 1.0.0
+date-released: 2026-09-10
+url: "https://github.com/janmejai2002/lunar-npu"
+repository-code: "https://github.com/janmejai2002/lunar-npu"
+keywords:
+  - "intel lunar lake"
+  - "npu"
+  - "openvino"
+  - "mamba ssm"
+  - "edge ai"
+  - "ambient intelligence"
+  - "speculative decoding"
+license: MIT

@@ -1,0 +1,27 @@
+name: Feature Request
+description: Propose an idea or new recipe for Lunar NPU
+title: "[FEAT]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have an idea for a new edge neural processing recipe, model architecture, or hardware acceleration pipeline? Tell us about it!
+  - type: textarea
+    id: problem
+    attributes:
+      label: Is your feature request related to a problem?
+      description: A clear and concise description of the problem or limitation.
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Describe the solution you'd like
+      description: How should this work in Lunar? (e.g. new CLI flag, new engine module, OpenVINO layer)
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Describe alternatives you've considered

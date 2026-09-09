@@ -1,0 +1,42 @@
+name: Bug Report
+description: Report a reproducible bug or issue with Lunar NPU
+title: "[BUG]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug! Please ensure you have tested with the latest `lunar-core` version.
+  - type: input
+    id: version
+    attributes:
+      label: Lunar Core Version
+      placeholder: "e.g., 1.0.0"
+    validations:
+      required: true
+  - type: textarea
+    id: hardware
+    attributes:
+      label: Hardware Environment
+      description: Provide CPU, NPU driver version, and OS.
+      placeholder: |
+        - CPU: Intel Core Ultra 7 256V (Lunar Lake)
+        - NPU Driver: 1004723
+        - OS: Windows 11 (24H2) / Linux Kernel 6.11+
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Minimal code or CLI command to reproduce the issue.
+      placeholder: |
+        1. Run `lunar mamba --steps 100`
+        2. See error...
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error Traceback / Logs
+      render: shell

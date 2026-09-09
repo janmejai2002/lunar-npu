@@ -79,6 +79,10 @@ class LunarNPUEngine:
 
         return info
 
+    def get_device_info(self) -> Dict[str, Any]:
+        """Convenience method returning device_info dictionary."""
+        return self.device_info
+
     def compile_model(
         self,
         model_or_path: Any,

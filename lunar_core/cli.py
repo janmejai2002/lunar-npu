@@ -159,6 +159,15 @@ def bugs_list(ctx: click.Context, status: Optional[str], json_mode: bool):
             click.echo(f"  [{e['id']}] ({e['status']}) {e['summary']} - Assigned: {e['specialist']}")
 
 
+@cli.command("studio")
+@click.option("--port", default=8899, help="HTTP port for Studio HUD")
+@click.option("--no-browser", is_flag=True, help="Do not open browser automatically")
+def studio_command(port: int, no_browser: bool):
+    """Launch interactive local browser Studio HUD for Lunar NPU."""
+    from lunar_core.studio import run_studio
+    run_studio(port=port, open_browser=not no_browser)
+
+
 def main():
     cli()
 
