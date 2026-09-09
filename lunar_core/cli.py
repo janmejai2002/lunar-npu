@@ -168,6 +168,13 @@ def studio_command(port: int, no_browser: bool):
     run_studio(port=port, open_browser=not no_browser)
 
 
+@cli.command("mcp")
+def mcp_command():
+    """Start standard Model Context Protocol (MCP) server over stdio."""
+    from lunar_core.mcp_server import main as mcp_main
+    mcp_main()
+
+
 def main():
     cli()
 

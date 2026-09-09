@@ -1,0 +1,26 @@
+# Lunar NPU: Intel Lunar Lake Ambient Intelligence & Edge Neural Processing Platform
+
+> The open-source platform for physical silicon acceleration on Intel Lunar Lake (47 TOPS NPU). Sub-0.2ms Mamba SSM recurrence, S^383 vector memory, zero-copy speculative decoding, and microsecond silicon circuit breakers.
+
+## Core Documentation & Reference
+- [Master Research Compendium](research/00_MASTER_RESEARCH_COMPENDIUM.md): 14-Chapter, 100-page monograph on NPU microarchitecture, OpenVINO compilation, and edge AI.
+- [Silicon Microarchitecture Internals](research/01_silicon_microarchitecture_and_hardware_internals.md): 6 NCE physical tiles, LPDDR5X on-package memory, and power envelopes.
+- [Mamba SSM Recurrence](research/04_non_transformer_frontiers_mamba_ssm_rwkv_bitnet.md): Constant O(1) state space equations and OpenVINO computational graph design.
+- [Empirical Benchmark Atlas](research/12_empirical_benchmark_atlas_and_profiling.md): Hardware measurements on Intel Core Ultra 7 256V.
+- [Developer Cookbook (Recipes 1-6)](research/13_developer_cookbook_and_reference_implementations.md): Reference implementations for all 6 production recipes.
+
+## Python API Reference
+- `lunar_core.engine.LunarNPUEngine`: Hardware compilation manager, enforces `NPU_TURBO=YES`, `NPU_QDQ_OPTIMIZATION=YES`, static shapes.
+- `lunar_core.mamba_ssm.LunarMambaEngine`: Constant-memory recurrent step runner (`step(x_token)`, `benchmark(num_steps)`).
+- `lunar_core.vector_memory.LunarVectorMemory`: Unit hypersphere S^383 vector memory (`embed(text)`, `add_document(text)`, `query(query, top_k)`).
+- `lunar_core.speculative.LunarSpeculativePipeline`: Dual-accelerator speculative decoding (`speculative_cycle(prefix_tokens)`).
+- `lunar_core.circuit_breaker.SiliconCircuitBreaker`: Deterministic DFA safety kernel (`audit(command_str)`).
+- `lunar_core.mcp_server.LunarMCPServer`: Model Context Protocol (MCP) JSON-RPC 2.0 stdio server (`lunar mcp`).
+
+## CLI Quick Reference
+- `lunar status`: Inspect NPU silicon, tiles, driver version, INT8 TOPS.
+- `lunar mamba --steps 100`: Profile Mamba SSM recurrence latency and tokens/sec.
+- `lunar embed "<text>"`: Compute S^383 normalized vector embedding.
+- `lunar audit "<command>"`: Audit proposed shell command in 2.2 microseconds.
+- `lunar studio`: Launch local browser HUD on port 8899.
+- `lunar mcp`: Start Model Context Protocol (MCP) server over stdio.

@@ -1,0 +1,18 @@
+---
+description: Development and integration guidelines for Lunar NPU platform
+globs: ["**/*.py", "**/*.toml"]
+---
+
+# Lunar NPU Development Guidelines
+
+When developing with or extending the Lunar NPU platform:
+
+## Silicon Rules & Architectural Constraints
+1. **Static Tensor Shapes**: The OpenVINO NPU compiler plugin (`vpux-compiler`) requires static dimensions. Never emit dynamic `[-1, -1]` dimensions to compiled NPU models. Always reshape dynamically-sized inputs to fixed sequence lengths (`[1, seq_len]`).
+2. **Zero Dynamic Allocation in Recurrence**: For Mamba SSM recurrence loops, allocate the state buffer once (`[1, d_inner, d_state]`) and mutate or copy in-place.
+3. **Hyperspherical Normalization**: All dense vector embeddings in `LunarVectorMemory` MUST be L2-normalized onto unit hypersphere $S^{383}$ ($\|v\|_2 = 1.0000 \pm 10^{-4}$). This allows cosine similarity to reduce to direct vector dot products.
+4. **Deterministic DFA Auditing**: Silicon Circuit Breaker checks must complete in under 50 microseconds using compiled regular expressions before dispatching system actions.
+
+## MCP Server Integration
+- To run Lunar as an MCP tool server for AI agents: `lunar mcp`
+- To query status programmatically: `LunarNPUEngine().device_info`

@@ -16,20 +16,23 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![CI Status](https://github.com/janmejai2002/lunar-npu/actions/workflows/ci.yml/badge.svg)](https://github.com/janmejai2002/lunar-npu/actions/workflows/ci.yml)
 [![Silicon Target](https://img.shields.io/badge/Silicon-Intel%20Lunar%20Lake%20(47%20TOPS)-orange.svg)](research/01_silicon_microarchitecture_and_hardware_internals.md)
-[![OpenVINO](https://img.shields.io/badge/Runtime-OpenVINO%202025+-purple.svg)](https://github.com/openvinotoolkit/openvino)
+[![MCP Compatible](https://img.shields.io/badge/MCP-Server%20Included-8A2BE2.svg)](https://modelcontextprotocol.io)
+[![llms.txt](https://img.shields.io/badge/llms.txt-available-00D26A.svg)](llms.txt)
 [![Python Version](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg)](pyproject.toml)
 [![Release](https://img.shields.io/badge/Release-v1.0.0-success.svg)](https://github.com/janmejai2002/lunar-npu/releases)
 [![Research Monograph](https://img.shields.io/badge/Research%20Monograph-100%20Pages%20(14%20Chapters)-gold.svg)](research/00_MASTER_RESEARCH_COMPENDIUM.md)
 
 ---
 
+[🤖 Agentic AI & MCP](#-agentic-ai--mcp-server-setup) •
+[⚡ Instant Run (uvx)](#-zero-install-instant-execution-uvx) •
 [Quickstart](#-30-second-quickstart) •
 [Architecture](#-hardware-microarchitecture--system-topology) •
-[Physical Benchmarks](#-empirical-silicon-benchmark-atlas) •
-[Interactive Studio](#-lunar-studio-web-hud) •
+[Benchmarks](#-empirical-silicon-benchmark-atlas) •
+[Studio HUD](#-lunar-studio-web-hud) •
 [Python SDK](#-python-sdk-quickstart) •
-[Research Monograph](#-the-100-page-research-monograph) •
-[Governance](#-governance--community)
+[Research](#-the-100-page-research-monograph) •
+[llms.txt](llms.txt)
 
 ---
 
@@ -40,6 +43,85 @@
 **Lunar** is a production edge neural computing framework purpose-built for the **Intel Core Ultra 200V series ("Lunar Lake")** architecture. While modern cloud agent runtimes consume hundreds of watts and accumulate escalating API costs, Lunar unlocks the physical **47 TOPS INT8 Intel AI Boost Neural Processing Unit (NPU 4000)** directly on battery power (< 2.5W).
 
 By pairing hardware-level **OpenVINO compiler plugins (`vpux-compiler`)**, **6 physical Neural Compute Engine (NCE) tiles**, and **in-package LPDDR5X memory**, Lunar delivers sub-millisecond continuous inference with zero dynamic memory allocation.
+
+---
+
+## 🤖 Agentic AI & Model Context Protocol (MCP) Setup
+
+In modern 2026 AI workflows, autonomous coding agents (Claude Desktop, Cursor, Antigravity, Cline, Windsurf, Roo Code) install and orchestrate tools through the **Model Context Protocol (MCP)**. Lunar provides a first-class, zero-dependency stdio MCP server out of the box (`lunar mcp`).
+
+### 1. One-Click AI Assistant Configuration
+
+Add Lunar to your agent's MCP configuration JSON:
+
+#### **Cursor (`.cursor/mcp.json` or Settings > MCP)**
+```json
+{
+  "mcpServers": {
+    "lunar-npu": {
+      "command": "lunar",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+#### **Claude Desktop (`claude_desktop_config.json`)**
+```json
+{
+  "mcpServers": {
+    "lunar-npu": {
+      "command": "python",
+      "args": ["-m", "lunar_core.mcp_server"]
+    }
+  }
+}
+```
+
+#### **Antigravity / Gemini CLI / Windsurf / Cline (`mcp_config.json`)**
+```json
+{
+  "mcpServers": {
+    "lunar-npu": {
+      "command": "lunar",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+### 2. Available Native Agent Tools
+
+Once registered, your AI agent autonomously calls deterministic physical silicon tools:
+
+| Tool | Parameters | Function & SLA |
+| :--- | :--- | :--- |
+| `lunar_status` | *None* | Queries physical silicon, active NCE tiles, driver version, and peak INT8 TOPS. |
+| `lunar_mamba_step` | `steps: int` | Constant-memory $O(1)$ state recurrence without transformer KV-cache bloat (0.197ms step). |
+| `lunar_vector_search` | `query: str`, `top_k: int` | Sub-3ms semantic memory retrieval on normalized unit hypersphere $S^{383}$. |
+| `lunar_circuit_breaker_audit` | `command: str` | 2.2µs deterministic regex DFA safety gatekeeper blocking destructive terminal actions. |
+| `lunar_add_memory` | `text: str`, `metadata: dict` | Embeds and stores persistent memory directly on on-device silicon without cloud leak. |
+
+---
+
+## ⚡ Zero-Install Instant Execution (`uvx` & `pipx`)
+
+In modern Python ecosystems, you don't even need to manually clone or configure virtualenvs:
+
+```bash
+# Query physical NPU hardware instantly
+uvx --from lunar-core lunar status
+
+# Launch interactive browser Studio HUD
+uvx --from lunar-core lunar studio
+
+# Audit a proposed shell action with Silicon Circuit Breaker
+uvx --from lunar-core lunar audit "rm -rf /"
+
+# Start the MCP server for an autonomous agent
+uvx --from lunar-core lunar mcp
+```
+*(Or replace `uvx --from lunar-core` with `pipx run lunar-core`)*
 
 ---
 
@@ -260,6 +342,20 @@ Lunar is documented by a 14-Chapter, 100-page comprehensive research monograph l
 11. [Unexplored Frontiers & Novel Research Ideas](research/11_unexplored_frontiers_and_novel_research_ideas.md)
 12. [Empirical Benchmark Atlas & Hardware Profiling](research/12_empirical_benchmark_atlas_and_profiling.md)
 13. [Developer Cookbook & 6 Production Reference Recipes](research/13_developer_cookbook_and_reference_implementations.md)
+
+<details>
+<summary><b>📖 Click to expand: The 6 Production Reference Recipes in Lunar Core</b></summary>
+
+| Recipe | Module | Silicon Target | Core SLA / Mechanism |
+| :--- | :--- | :--- | :--- |
+| **Recipe 1** | `LunarNPUEngine` | Intel NPU 4000 (6 Tiles) | `NPU_TURBO=YES`, `NPU_QDQ_OPTIMIZATION=YES`, static shape compilation. |
+| **Recipe 2** | `LunarVectorMemory` | SHAVE DSP / NCE | Dense 384-dim embeddings projected onto unit hypersphere $S^{383}$ (< 3.6ms cosine query). |
+| **Recipe 3** | `LunarMambaEngine` | NPU Matrix Tiles | Pure OpenVINO computational graph for $h_t = \bar{A}h_{t-1} + \bar{B}x_t$ (0.197ms step, 5,068 tok/s). |
+| **Recipe 4** | `LunarSpeculativePipeline`| NPU Draft + Target GPU | $\gamma = 4$ speculative tokens drafted on NPU and verified over on-package LPDDR5X UMA (2.78x speedup). |
+| **Recipe 5** | `AcousticSensor` | NPU INT8 / FP16 | Continuous low-power acoustic speech monitoring on battery. |
+| **Recipe 6** | `SiliconCircuitBreaker` | Host / OS Gatekeeper | Deterministic regex DFA scanning proposed shell actions in 2.2µs before syscall dispatch. |
+
+</details>
 
 ---
 
