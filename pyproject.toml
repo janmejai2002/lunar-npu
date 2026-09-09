@@ -66,6 +66,6 @@ include = ["lunar_core*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-v --ignore=tests/test_hardware_rig --ignore=tests/test_api_endpoints.py --ignore=tests/test_harness.py"
+addopts = "-v -p no:httpbin --ignore=tests/test_hardware_rig --ignore=tests/test_api_endpoints.py --ignore=tests/test_harness.py"
 
 
