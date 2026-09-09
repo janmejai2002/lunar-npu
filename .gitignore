@@ -37,6 +37,8 @@ runtime_state.db
 *.bin
 *.blob
 perpetual_config.yaml
+.lunar_*.json*
+.lunar_*.jsonl
 
 # Antigravity & local scratch files
 .agents/
