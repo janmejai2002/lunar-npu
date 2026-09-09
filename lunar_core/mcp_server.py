@@ -229,25 +229,34 @@ class LunarMCPServer:
 
     def run_stdio(self) -> None:
         """Run standard I/O communication loop."""
-        for line in sys.stdin:
-            line = line.strip()
+        for raw_line in sys.stdin:
+            line = raw_line.strip()
             if not line:
                 continue
 
-            # Check for header-based MCP messages
+            # Header-based MCP message
             if line.startswith("Content-Length:"):
                 length = int(line.split(":")[1].strip())
-                # Skip blank line
                 sys.stdin.readline()
                 content = sys.stdin.read(length)
                 req = json.loads(content)
-            else:
-                req = json.loads(line)
+                resp = self.handle_request(req)
+                if resp is not None:
+                    sys.stdout.write(json.dumps(resp) + "\n")
+                    sys.stdout.flush()
+                continue
 
+            # Line-delimited JSON message (skip any BOM or non-JSON prefix)
+            idx = line.find("{")
+            if idx == -1:
+                continue
+            line = line[idx:]
+            req = json.loads(line)
             resp = self.handle_request(req)
             if resp is not None:
                 sys.stdout.write(json.dumps(resp) + "\n")
                 sys.stdout.flush()
+
 
 
 def main():
