@@ -274,6 +274,84 @@ def benchmark_suite(ctx: click.Context, mamba_steps: int, audit_runs: int, json_
         click.echo("=" * 72)
 
 
+@cli.command("stress")
+@click.option("--iterations", default=50, help="Number of systolic matrix contraction passes")
+@click.option("--json", "json_mode", is_flag=True, help="Output machine-readable JSON")
+@click.pass_context
+def stress_command(ctx: click.Context, iterations: int, json_mode: bool):
+    """Saturate Intel Lunar Lake NPU 4000 to its theoretical peak (47 TOPS) across all 6 NCE tiles."""
+    from lunar_core.stress import run_npu_stress_test
+    json_mode = json_mode or ctx.obj.get("json_mode", False)
+    res = run_npu_stress_test(iterations=iterations)
+    if json_mode:
+        click.echo(json.dumps(res, indent=2))
+    else:
+        click.echo("=" * 64)
+        click.echo("       47 TOPS SYSTOLIC SILICON SATURATION BENCHMARK")
+        click.echo("=" * 64)
+        click.echo(f"  Device              : {res['device']} (is_npu={res['is_npu']}, tiles={res['active_tiles']}/6)")
+        click.echo(f"  Iterations          : {res['iterations']} passes")
+        rate = round(res['iterations'] / max(res['duration_ms'] / 1000.0, 1e-6))
+        click.echo(f"  Duration            : {res['duration_ms']} ms ({rate:,} inf/sec)")
+        click.echo(f"  Sustained Compute   : {res['sustained_tflops']} TFLOPS")
+        click.echo(f"  Effective INT8 TOPS : {res['effective_int8_tops']} TOPS ({res['tops_utilization_pct']}% of 47 TOPS peak)")
+        click.echo(f"  Tensor FLOPs Exec   : {res['total_gigaflops_executed']} GFLOPs")
+        click.echo(f"  RAPL Package Power  : {res['package_power_w']} W ({res['sensor_backend']})")
+        click.echo(f"  Die Temperature     : {res['temperature_c']} °C")
+        click.echo(f"  Energy Efficiency   : {res['gflops_per_watt']} GFLOPs/Watt ({res['joules_consumed']} J total)")
+        click.echo("=" * 64)
+
+
+@cli.command("power")
+@click.option("--json", "json_mode", is_flag=True, help="Output machine-readable JSON")
+@click.pass_context
+def power_command(ctx: click.Context, json_mode: bool):
+    """Sample physical Intel RAPL energy and temperature sensors via Windows PDH in <0.3ms."""
+    from lunar_core.power_telemetry import get_power_telemetry
+    json_mode = json_mode or ctx.obj.get("json_mode", False)
+    sensor = get_power_telemetry()
+    res = sensor.sample()
+    if json_mode:
+        click.echo(json.dumps(res, indent=2))
+    else:
+        click.echo("=" * 64)
+        click.echo("         INTEL RAPL PHYSICAL HARDWARE POWER SENSORS")
+        click.echo("=" * 64)
+        click.echo(f"  Backend             : {res.get('sensor_backend', 'N/A')}")
+        click.echo(f"  Package Power (SoC) : {res.get('package_power_w', 0.0)} W")
+        click.echo(f"  CPU Cores (PP0)     : {res.get('core_power_w', 0.0)} W")
+        click.echo(f"  SoC / Uncore (PP1)  : {res.get('uncore_power_w', 0.0)} W")
+        click.echo(f"  LPDDR5X Memory      : {res.get('dram_power_w', 0.0)} W")
+        click.echo(f"  NPU Domain (Est)    : {res.get('npu_power_est_w', 0.0)} W")
+        click.echo(f"  Die Thermal Sensor  : {res.get('temperature_c', 0.0)} °C")
+        click.echo("=" * 64)
+
+
+@cli.command("audits")
+@click.option("--limit", default=10, help="Number of recent audits to display")
+@click.option("--json", "json_mode", is_flag=True, help="Output machine-readable JSON")
+@click.pass_context
+def audits_command(ctx: click.Context, limit: int, json_mode: bool):
+    """Inspect real Antigravity agent shell command audits recorded by the circuit breaker hook."""
+    from pathlib import Path
+    json_mode = json_mode or ctx.obj.get("json_mode", False)
+    audit_file = Path(".lunar_circuit_audit.jsonl")
+    audits = []
+    if audit_file.exists():
+        with open(audit_file, "r", encoding="utf-8") as f:
+            for line in f:
+                if line.strip():
+                    audits.append(json.loads(line.strip()))
+    recent = audits[-limit:]
+    if json_mode:
+        click.echo(json.dumps(recent, indent=2))
+    else:
+        click.echo(f"Recent Antigravity Agent Shell Audits ({len(recent)} of {len(audits)} total):")
+        for a in recent:
+            v_color = "BLOCKED" if a.get("verdict") == "BLOCKED" else "ALLOWED"
+            click.echo(f"  [{v_color}] {a.get('command', '')} (Tier: {a.get('tier')}, Latency: {a.get('latency_ms', 0):.3f}ms)")
+
+
 @cli.group("bugs")
 def bugs_group():
     """Manage defect ledger (docs/BUG_LEDGER.md)."""

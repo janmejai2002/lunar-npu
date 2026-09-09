@@ -1,4 +1,4 @@
-﻿"""Unit tests for Lunar Core Command-Line Interface and benchmark suite."""
+"""Unit tests for Lunar Core Command-Line Interface and benchmark suite."""
 
 import json
 from click.testing import CliRunner
@@ -70,3 +70,30 @@ def test_cli_benchmark():
     assert data["overall_status"] == "QUALIFIED_PRODUCTION_GRADE"
     assert data["circuit_breaker"]["accuracy_pct"] == 100.0
     assert data["micro_router"]["routing_accuracy_pct"] == 100.0
+
+
+def test_cli_stress():
+    runner = CliRunner()
+    result = runner.invoke(cli, ["stress", "--iterations", "5", "--json"])
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert data["iterations"] == 5
+    assert "sustained_tflops" in data
+    assert "package_power_w" in data
+
+
+def test_cli_power():
+    runner = CliRunner()
+    result = runner.invoke(cli, ["power", "--json"])
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert "package_power_w" in data
+    assert "sensor_backend" in data
+
+
+def test_cli_audits():
+    runner = CliRunner()
+    result = runner.invoke(cli, ["audits", "--limit", "5", "--json"])
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert isinstance(data, list)
