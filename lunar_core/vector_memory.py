@@ -6,6 +6,7 @@ L2 normalization onto unit hypersphere S^383, and high-performance Top-K similar
 
 from __future__ import annotations
 
+import hashlib
 import os
 import time
 from pathlib import Path
@@ -75,17 +76,18 @@ class LunarVectorMemory:
             except Exception:
                 pass
 
-        # Build fallback deterministic dense projection model graph in OpenVINO
-        input_ids = ops.parameter([1, self.seq_len], ov.Type.f32, name="input_ids")
-        np.random.seed(42)
-        proj_matrix = ops.constant(
-            np.random.randn(self.seq_len, self.embedding_dim).astype(np.float32)
-        )
-        matmul = ops.matmul(input_ids, proj_matrix, transpose_a=False, transpose_b=False)
-        # Normalization layer
-        norm = ops.reduce_l2(matmul, ops.constant(1, dtype=np.int64), keep_dims=True)
-        div = ops.divide(matmul, ops.maximum(norm, ops.constant(1e-12, dtype=np.float32)), name="normalized_embedding")
-        model = ov.Model([div], [input_ids], "LunarDenseProjection")
+        # Build fallback deterministic dense embedding graph in OpenVINO (BoW Gather + Mean Pool)
+        vocab_size = 8192
+        input_ids = ops.parameter([1, self.seq_len], ov.Type.i64, name="input_ids")
+        rng = np.random.RandomState(42)
+        table = rng.randn(vocab_size, self.embedding_dim).astype(np.float32)
+        table[0] = 0.0  # pad token zero embedding
+        emb_const = ops.constant(table)
+        gathered = ops.gather(emb_const, input_ids, ops.constant(0, dtype=np.int64))
+        sum_emb = ops.reduce_sum(gathered, ops.constant(1, dtype=np.int64))
+        norm = ops.reduce_l2(sum_emb, ops.constant(1, dtype=np.int64), keep_dims=True)
+        normalized = ops.divide(sum_emb, ops.maximum(norm, ops.constant(1e-12, dtype=np.float32)), name="normalized_embedding")
+        model = ov.Model([normalized], [input_ids], "LunarDenseBoWProjection")
 
         compiled = self.engine.compile_model(model)
         req = compiled.create_infer_request()
@@ -103,15 +105,16 @@ class LunarVectorMemory:
                 mask = mask + [0] * pad_len
             return np.array([ids], dtype=np.int64), np.array([mask], dtype=np.int64)
 
-        # Fast deterministic ascii hash tokenizer
-        words = text.lower().split()
-        ids = [((hash(w) & 0x7FFFFFFF) % 30000) + 1 for w in words[:self.seq_len]]
+        # Deterministic ascii MD5 hash tokenizer for 100% cross-platform reproducibility
+        words = [w.strip(".,!?:;\"'()[]{}") for w in text.lower().split()]
+        words = [w for w in words if w]
+        ids = [int(hashlib.md5(w.encode("utf-8")).hexdigest()[:8], 16) % 8191 + 1 for w in words[:self.seq_len]]
         mask = [1] * len(ids)
         if len(ids) < self.seq_len:
             pad_len = self.seq_len - len(ids)
             ids = ids + [0] * pad_len
             mask = mask + [0] * pad_len
-        return np.array([ids], dtype=np.float32), np.array([mask], dtype=np.float32)
+        return np.array([ids], dtype=np.int64), np.array([mask], dtype=np.int64)
 
     def embed(self, text: str) -> Tuple[np.ndarray, float]:
         """
@@ -121,10 +124,22 @@ class LunarVectorMemory:
         input_ids, attention_mask = self._tokenize(text)
         t0 = time.perf_counter()
 
-        # Handle tensor inputs based on compiled model input count
+        # Handle tensor inputs based on compiled model input signature
         num_inputs = len(self.compiled_model.inputs)
         if num_inputs == 1:
-            input_tensor = ov.Tensor(input_ids.astype(np.float32))
+            inp_node = self.compiled_model.inputs[0]
+            dtype = np.float32 if inp_node.element_type == ov.Type.f32 else np.int64
+            if not inp_node.partial_shape.is_dynamic:
+                target_shape = tuple(inp_node.partial_shape.to_shape())
+                if input_ids.shape != target_shape:
+                    adjusted = np.zeros(target_shape, dtype=dtype)
+                    fill_cols = min(target_shape[-1], input_ids.shape[-1])
+                    adjusted[0, :fill_cols] = input_ids[0, :fill_cols]
+                    input_tensor = ov.Tensor(adjusted)
+                else:
+                    input_tensor = ov.Tensor(input_ids.astype(dtype))
+            else:
+                input_tensor = ov.Tensor(input_ids.astype(dtype))
             self.infer_request.set_input_tensor(input_tensor)
         else:
             self.infer_request.set_tensor(self.compiled_model.inputs[0], ov.Tensor(input_ids.astype(np.int64)))

@@ -78,51 +78,76 @@ class MicroRouter:
 
     def __init__(self, memory_engine: Optional[LunarVectorMemory] = None) -> None:
         self.memory = memory_engine or LunarVectorMemory()
+        self.archetypes: Dict[str, List[str]] = dict(self.DEFAULT_ARCHETYPES)
         self.centroids: Dict[str, np.ndarray] = {}
+        self._tokens: Dict[str, set] = {}
         self._build_centroids()
 
     def _build_centroids(self) -> None:
         """Embed archetype exemplars and compute normalized manifold centroids."""
-        for archetype, exemplars in self.DEFAULT_ARCHETYPES.items():
+        self._tokens = {}
+        for archetype, exemplars in self.archetypes.items():
             vectors = []
+            words = set()
             for text in exemplars:
                 res = self.memory.embed(text)
                 vec = res[0] if isinstance(res, (tuple, list)) else res
                 vectors.append(vec)
+                for w in text.lower().split():
+                    cw = w.strip(".,!?:;\"'()[]{}")
+                    if len(cw) > 2:
+                        words.add(cw)
             centroid = np.mean(vectors, axis=0)
             norm = np.linalg.norm(centroid)
             if norm > 1e-9:
                 centroid = centroid / norm
             self.centroids[archetype] = centroid
+            self._tokens[archetype] = words
 
     def register_archetype(self, name: str, exemplars: List[str]) -> None:
         """Register a custom agent swarm archetype."""
         if not exemplars:
             raise ValueError("Exemplars list cannot be empty")
+        arch_key = name.upper()
+        self.archetypes[arch_key] = exemplars
         vectors = []
+        words = set()
         for text in exemplars:
             res = self.memory.embed(text)
             vec = res[0] if isinstance(res, (tuple, list)) else res
             vectors.append(vec)
+            for w in text.lower().split():
+                cw = w.strip(".,!?:;\"'()[]{}")
+                if len(cw) > 2:
+                    words.add(cw)
         centroid = np.mean(vectors, axis=0)
         norm = np.linalg.norm(centroid)
         if norm > 1e-9:
             centroid = centroid / norm
-        self.centroids[name.upper()] = centroid
+        self.centroids[arch_key] = centroid
+        self._tokens[arch_key] = words
 
     def route(self, prompt: str, temperature: float = 0.1) -> RouteDecision:
         """
         Classify task prompt and determine optimal agent archetype in <3ms.
+        Employs RouteLLM / ProCIS hybrid scoring: dense semantic cosine distance + lexical overlap.
         """
         t0 = time.perf_counter()
         res = self.memory.embed(prompt)
         query_vec = res[0] if isinstance(res, (tuple, list)) else res
 
+        prompt_words = {w.strip(".,!?:;\"'()[]{}") for w in prompt.lower().split()}
+        prompt_words = {w for w in prompt_words if len(w) > 2}
 
         raw_similarities: Dict[str, float] = {}
         for archetype, centroid in self.centroids.items():
             # Cosine similarity on unit vectors is dot product
             sim = float(np.dot(query_vec, centroid))
+            # Lexical manifold prior
+            arch_tokens = self._tokens.get(archetype, set())
+            if arch_tokens and prompt_words:
+                overlap = len(prompt_words.intersection(arch_tokens))
+                sim += 0.25 * (overlap / math.sqrt(len(prompt_words)))
             raw_similarities[archetype] = sim
 
         # Temperature-scaled Softmax to obtain calibrated probabilities
@@ -142,7 +167,7 @@ class MicroRouter:
 
         rationale = (
             f"Mapped prompt to '{top_agent}' manifold with {top_conf * 100:.1f}% confidence "
-            f"(cosine similarity: {raw_similarities[top_agent]:.3f}) on Lunar Lake NPU in {dur_ms:.2f}ms."
+            f"(hybrid similarity: {raw_similarities[top_agent]:.3f}) on Lunar Lake NPU in {dur_ms:.2f}ms."
         )
 
         return RouteDecision(
