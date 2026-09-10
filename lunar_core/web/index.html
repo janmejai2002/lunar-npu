@@ -637,7 +637,7 @@
             <canvas id="screen-perception-canvas" width="480" height="240"></canvas>
           </div>
           <div class="vision-actions-bar" style="margin-top:10px;display:flex;gap:10px;">
-            <button id="btn-capture-glance" class="btn btn-secondary btn-small">
+            <button id="btn-capture-glance" class="btn btn-secondary btn-small" onclick="captureScreenGlance()">
               <span>Capture Glance</span>
             </button>
           </div>
@@ -660,7 +660,7 @@
           <div class="interactive-box">
             <textarea id="swarm-task-prompt" class="mission-textarea" style="width:100%;height:60px;padding:8px;background:var(--card-inner);border:1px solid var(--border);color:var(--text-main);border-radius:6px;" placeholder="Enter swarm goal...">Write an optimized quicksort function in Python with doctests</textarea>
             <div style="margin-top:10px;">
-              <button id="btn-engage-swarm" class="btn btn-primary btn-small">
+              <button id="btn-engage-swarm" class="btn btn-primary btn-small" onclick="engageSwarm()">
                 <span>Engage Swarm</span>
               </button>
             </div>
@@ -682,7 +682,7 @@
           </div>
           <div class="input-with-action" style="margin-top:10px;display:flex;gap:8px;">
             <input type="text" id="router-prompt-input" class="code-input" style="flex:1;padding:6px;background:var(--card-inner);border:1px solid var(--border);color:var(--text-main);border-radius:6px;" value="Implement cache-line aligned SPSC ring buffer">
-            <button id="btn-run-route" class="btn btn-secondary btn-small">
+            <button id="btn-run-route" class="btn btn-secondary btn-small" onclick="routePrompt()">
               <span>Route</span>
             </button>
           </div>

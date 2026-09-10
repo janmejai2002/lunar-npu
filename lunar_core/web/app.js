@@ -191,10 +191,11 @@
      2. DUAL-STAGE CIRCUIT BREAKER
      ========================================================================== */
   async function runAuditCommand(cmd) {
-    const cleanCmd = (cmd || els.auditInput.value).trim();
+    const inputVal = els.auditInput ? els.auditInput.value : '';
+    const cleanCmd = (cmd || inputVal).trim();
     if (!cleanCmd) return;
 
-    els.btnRunAudit.disabled = true;
+    if (els.btnRunAudit) els.btnRunAudit.disabled = true;
     try {
       const res = await fetch(`/api/audit?cmd=${encodeURIComponent(cleanCmd)}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -202,37 +203,39 @@
 
       // Update Verdict display
       const isAllowed = (data.verdict === 'ALLOWED');
-      els.verdictBadge.textContent = isAllowed ? 'ALLOWED' : 'BLOCKED';
-      els.verdictBadge.className = isAllowed ? 'verdict-status status-allowed' : 'verdict-status status-blocked';
+      if (els.verdictBadge) {
+        els.verdictBadge.textContent = isAllowed ? 'ALLOWED' : 'BLOCKED';
+        els.verdictBadge.className = isAllowed ? 'verdict-status status-allowed' : 'verdict-status status-blocked';
+      }
 
       const tierName = data.tier || (isAllowed ? 'STAGE 1: DFA_REGEX_GATE' : 'STAGE 1: CATASTROPHIC_DFA');
-      els.verdictTier.textContent = tierName;
+      if (els.verdictTier) els.verdictTier.textContent = tierName;
 
       // Latency formatting
       const latMs = data.latency_ms !== undefined ? data.latency_ms : 0.002;
-      if (latMs < 0.05) {
-        els.verdictLat.textContent = `${(latMs * 1000).toFixed(2)} µs`;
-      } else {
-        els.verdictLat.textContent = `${latMs.toFixed(2)} ms`;
-      }
+      const latStr = latMs < 0.05 ? `${(latMs * 1000).toFixed(2)} µs` : `${latMs.toFixed(2)} ms`;
+      if (els.verdictLat) els.verdictLat.textContent = latStr;
 
-      els.verdictReason.textContent = data.reason || (isAllowed ? 'Verified against Aho-Corasick deterministic DFA gate.' : 'Blocked: Catastrophic pattern intercepted before execution.');
+      if (els.verdictReason) {
+        els.verdictReason.textContent = data.reason || (isAllowed ? 'Verified against Aho-Corasick deterministic DFA gate.' : 'Blocked: Catastrophic pattern intercepted before execution.');
+      }
 
       // Prepend to feed
       prependAuditFeedItem({
         command: cleanCmd,
         verdict: data.verdict,
-        latency_str: els.verdictLat.textContent,
+        latency_str: latStr,
         timestamp: new Date().toLocaleTimeString(),
       });
     } catch (err) {
-      els.verdictReason.textContent = `Audit error: ${err.message}`;
+      if (els.verdictReason) els.verdictReason.textContent = `Audit error: ${err.message}`;
     } finally {
-      els.btnRunAudit.disabled = false;
+      if (els.btnRunAudit) els.btnRunAudit.disabled = false;
     }
   }
 
   function prependAuditFeedItem(item) {
+    if (!els.auditFeedList) return;
     const isAllowed = item.verdict === 'ALLOWED';
     const div = document.createElement('div');
     div.className = `feed-item ${isAllowed ? 'item-allowed' : 'item-blocked'}`;
@@ -254,7 +257,7 @@
       const res = await fetch('/api/agent_audits');
       if (!res.ok) return;
       const data = await res.json();
-      if (data.circuit_breaker && data.circuit_breaker.recent) {
+      if (data.circuit_breaker && data.circuit_breaker.recent && els.auditFeedList) {
         els.auditFeedList.innerHTML = '';
         data.circuit_breaker.recent.slice(-12).reverse().forEach(a => {
           const latMs = a.latency_ms || 0.002;
@@ -265,7 +268,7 @@
             latency_str: latStr,
           });
         });
-        els.auditCount.textContent = `${data.circuit_breaker.total_audits || 615} Audits`;
+        if (els.auditCount) els.auditCount.textContent = `${data.circuit_breaker.total_audits || 615} Audits`;
       }
     } catch (err) {
       console.debug('Agent audits notice:', err);
@@ -370,10 +373,11 @@
   }
 
   async function routePrompt(promptText) {
-    const prompt = (promptText || els.routerInput.value).trim();
+    const inputVal = els.routerInput ? els.routerInput.value : '';
+    const prompt = (promptText || inputVal).trim();
     if (!prompt) return;
 
-    els.btnRunRoute.disabled = true;
+    if (els.btnRunRoute) els.btnRunRoute.disabled = true;
     try {
       const res = await fetch(`/api/route?prompt=${encodeURIComponent(prompt)}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -382,25 +386,25 @@
       const target = (data.target_agent || 'CODER').toUpperCase();
       const confPct = Math.round((data.confidence || 0.94) * 1000) / 10;
 
-      els.routeTargetBadge.textContent = target;
-      els.routeConfBar.style.width = `${confPct}%`;
-      els.routeConfVal.textContent = `${confPct}%`;
+      if (els.routeTargetBadge) els.routeTargetBadge.textContent = target;
+      if (els.routeConfBar) els.routeConfBar.style.width = `${confPct}%`;
+      if (els.routeConfVal) els.routeConfVal.textContent = `${confPct}%`;
 
       const lat = data.latency_ms || 2.15;
-      els.routeLatVal.textContent = `${lat.toFixed(2)} ms`;
+      if (els.routeLatVal) els.routeLatVal.textContent = `${lat.toFixed(2)} ms`;
 
       // Update radar angle towards matched centroid
       if (state.radarCentroids[target]) {
         state.activeQueryAngle = state.radarCentroids[target].angle + (Math.random() * 0.16 - 0.08);
         state.activeQueryDist = Math.max(0.2, Math.min(0.85, 1.0 - (data.confidence || 0.8)));
         const arcRad = (state.activeQueryDist * 0.9).toFixed(3);
-        els.routeArcRad.textContent = `${arcRad} rad`;
+        if (els.routeArcRad) els.routeArcRad.textContent = `${arcRad} rad`;
       }
       drawGeodesicRadar();
     } catch (err) {
       console.error('Route error:', err);
     } finally {
-      els.btnRunRoute.disabled = false;
+      if (els.btnRunRoute) els.btnRunRoute.disabled = false;
     }
   }
 
@@ -419,15 +423,17 @@
 
   async function engageSwarm() {
     if (state.isSwarmRunning) return;
-    const prompt = els.taskPrompt.value.trim();
+    const prompt = els.taskPrompt ? els.taskPrompt.value.trim() : '';
     if (!prompt) return;
 
     state.isSwarmRunning = true;
-    els.btnEngageSwarm.disabled = true;
-    els.swarmStatusPill.textContent = 'Swarm Cycling...';
-    els.swarmStatusPill.className = 'subhead-pill accent-ochre';
+    if (els.btnEngageSwarm) els.btnEngageSwarm.disabled = true;
+    if (els.swarmStatusPill) {
+      els.swarmStatusPill.textContent = 'Swarm Cycling...';
+      els.swarmStatusPill.className = 'subhead-pill accent-ochre';
+    }
 
-    const isCyclic = els.cyclicToggle.checked;
+    const isCyclic = els.cyclicToggle ? els.cyclicToggle.checked : false;
 
     // Visual cycle loop animation
     const cycleRoles = ['ARCHITECT', 'CODER', 'SECURITY_AUDITOR', 'TESTER_DEVOPS'];
@@ -454,79 +460,94 @@
         renderStandardSwarm(data);
       }
 
-      els.swarmStatusPill.textContent = 'Converged (Lyapunov E_k=0)';
-      els.swarmStatusPill.className = 'subhead-pill accent-moss';
+      if (els.swarmStatusPill) {
+        els.swarmStatusPill.textContent = 'Converged (Lyapunov E_k=0)';
+        els.swarmStatusPill.className = 'subhead-pill accent-moss';
+      }
     } catch (err) {
       clearInterval(animInterval);
-      els.swarmStatusPill.textContent = `Error: ${err.message}`;
-      els.swarmStatusPill.className = 'subhead-pill accent-amber';
+      if (els.swarmStatusPill) {
+        els.swarmStatusPill.textContent = `Error: ${err.message}`;
+        els.swarmStatusPill.className = 'subhead-pill accent-amber';
+      }
     } finally {
       state.isSwarmRunning = false;
-      els.btnEngageSwarm.disabled = false;
+      if (els.btnEngageSwarm) els.btnEngageSwarm.disabled = false;
     }
   }
 
   function renderCyclicTrajectory(data) {
     const traj = data.trajectory || [];
-    els.trajectorySteps.innerHTML = '';
-
-    traj.forEach((step, idx) => {
-      const chip = document.createElement('div');
-      const isLast = (idx === traj.length - 1 && data.converged);
-      chip.className = `step-chip ${isLast ? 'step-converged' : 'step-pass'}`;
-      chip.innerHTML = `
-        <span class="step-iter">k=${step.iteration || (idx + 1)}</span>
-        <span class="step-name">${step.persona || 'Agent Pass'}</span>
-        <span class="step-err">E: ${step.lyapunov_error !== undefined ? step.lyapunov_error.toFixed(2) : '0.00'}</span>
-      `;
-      els.trajectorySteps.appendChild(chip);
-    });
+    if (els.trajectorySteps) {
+      els.trajectorySteps.innerHTML = '';
+      traj.forEach((step, idx) => {
+        const chip = document.createElement('div');
+        const isLast = (idx === traj.length - 1 && data.converged);
+        chip.className = `step-chip ${isLast ? 'step-converged' : 'step-pass'}`;
+        chip.innerHTML = `
+          <span class="step-iter">k=${step.iteration || (idx + 1)}</span>
+          <span class="step-name">${step.persona || 'Agent Pass'}</span>
+          <span class="step-err">E: ${step.lyapunov_error !== undefined ? step.lyapunov_error.toFixed(2) : '0.00'}</span>
+        `;
+        els.trajectorySteps.appendChild(chip);
+      });
+    }
 
     const finalErr = data.final_error !== undefined ? data.final_error : 0.0;
-    els.lyapunovValTag.textContent = `E_k = ${finalErr.toFixed(4)} (${data.converged ? 'CONVERGED' : 'STABILIZED'})`;
-    els.lyapunovBar.style.width = data.converged ? '100%' : '65%';
+    if (els.lyapunovValTag) {
+      els.lyapunovValTag.textContent = `E_k = ${finalErr.toFixed(4)} (${data.converged ? 'CONVERGED' : 'STABILIZED'})`;
+    }
+    if (els.lyapunovBar) {
+      els.lyapunovBar.style.width = data.converged ? '100%' : '65%';
+    }
 
     // Worktree & Code
-    if (data.worktree_path) {
+    if (data.worktree_path && els.swarmWorktree) {
       els.swarmWorktree.textContent = `Worktree: ${data.worktree_path}`;
     }
 
     const lastStep = traj[traj.length - 1];
-    if (lastStep && lastStep.content) {
+    if (lastStep && lastStep.content && els.swarmCodeOutput) {
       els.swarmCodeOutput.textContent = lastStep.content;
     }
 
     // Metrics footer
-    els.smLat.textContent = `${(data.total_latency_ms || 45.2).toFixed(1)} ms`;
-    els.smLead.textContent = 'CYCLIC_SWARM';
-    els.smSafe.textContent = 'ALLOWED (DFA+NPU)';
-    els.smSafe.className = 'accent-moss';
-    els.smMem.textContent = `swarm_cycle_${(data.iterations || 3)}it`;
+    if (els.smLat) els.smLat.textContent = `${(data.total_latency_ms || 45.2).toFixed(1)} ms`;
+    if (els.smLead) els.smLead.textContent = 'CYCLIC_SWARM';
+    if (els.smSafe) {
+      els.smSafe.textContent = 'ALLOWED (DFA+NPU)';
+      els.smSafe.className = 'accent-moss';
+    }
+    if (els.smMem) els.smMem.textContent = `swarm_cycle_${(data.iterations || 3)}it`;
   }
 
   function renderStandardSwarm(data) {
-    if (data.extracted_code) {
-      els.swarmCodeOutput.textContent = data.extracted_code;
-    } else if (data.generated_content) {
-      els.swarmCodeOutput.textContent = data.generated_content;
+    if (els.swarmCodeOutput) {
+      if (data.extracted_code) {
+        els.swarmCodeOutput.textContent = data.extracted_code;
+      } else if (data.generated_content) {
+        els.swarmCodeOutput.textContent = data.generated_content;
+      }
     }
 
-    els.smLat.textContent = `${(data.total_latency_ms || 38.4).toFixed(1)} ms`;
-    els.smLead.textContent = data.lead_persona || 'CODER';
-    els.smSafe.textContent = `${data.safety_decision || 'ALLOWED'} (${data.safety_tier || 'DFA'})`;
-    els.smSafe.className = data.safety_decision === 'BLOCKED' ? 'accent-amber' : 'accent-moss';
-    els.smMem.textContent = data.memory_doc_id || 'swarm_rec_101';
+    if (els.smLat) els.smLat.textContent = `${(data.total_latency_ms || 38.4).toFixed(1)} ms`;
+    if (els.smLead) els.smLead.textContent = data.lead_persona || 'CODER';
+    if (els.smSafe) {
+      els.smSafe.textContent = `${data.safety_decision || 'ALLOWED'} (${data.safety_tier || 'DFA'})`;
+      els.smSafe.className = data.safety_decision === 'BLOCKED' ? 'accent-amber' : 'accent-moss';
+    }
+    if (els.smMem) els.smMem.textContent = data.memory_doc_id || 'swarm_rec_101';
 
     // Simulated Lyapunov step for single pass
-    els.lyapunovValTag.textContent = 'E_k = 0.0000 (DIRECT_PASS)';
-    els.lyapunovBar.style.width = '100%';
+    if (els.lyapunovValTag) els.lyapunovValTag.textContent = 'E_k = 0.0000 (DIRECT_PASS)';
+    if (els.lyapunovBar) els.lyapunovBar.style.width = '100%';
   }
 
   /* ==========================================================================
      5. LIVE SCREEN PERCEPTION & BOUNDING BOX CANVAS
      ========================================================================== */
   async function captureScreenGlance() {
-    els.btnCaptureGlance.disabled = true;
+    if (els.btnCaptureGlance) els.btnCaptureGlance.disabled = true;
     try {
       const res = await fetch('/api/screen');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -538,12 +559,12 @@
         height: data.image_height || 1080,
       };
 
-      els.screenDimsTag.textContent = `${state.screenDims.width}×${state.screenDims.height}`;
-      els.screenLatTag.textContent = `${(data.latency_ms || 3.8).toFixed(1)} ms`;
-      els.visionFpsBadge.textContent = `${(data.fps || 140).toFixed(0)} FPS NPU`;
-      els.elemCountBadge.textContent = `${state.screenElements.length} Elements`;
+      if (els.screenDimsTag) els.screenDimsTag.textContent = `${state.screenDims.width}×${state.screenDims.height}`;
+      if (els.screenLatTag) els.screenLatTag.textContent = `${(data.latency_ms || 3.8).toFixed(1)} ms`;
+      if (els.visionFpsBadge) els.visionFpsBadge.textContent = `${(data.fps || 140).toFixed(0)} FPS NPU`;
+      if (els.elemCountBadge) els.elemCountBadge.textContent = `${state.screenElements.length} Elements`;
 
-      if (data.phash) {
+      if (data.phash && els.opticalPhashVal) {
         els.opticalPhashVal.textContent = `pHash: ${data.phash.slice(0, 8)}...${data.phash.slice(-4)}`;
       }
 
@@ -564,7 +585,7 @@
     } catch (err) {
       console.error('Screen perception error:', err);
     } finally {
-      els.btnCaptureGlance.disabled = false;
+      if (els.btnCaptureGlance) els.btnCaptureGlance.disabled = false;
     }
   }
 
@@ -643,6 +664,7 @@
   }
 
   function renderElementsTable(elements) {
+    if (!els.elementsTable) return;
     if (!elements || !elements.length) {
       els.elementsTable.innerHTML = '<div class="elem-row"><span class="elem-type text-dim">No UI elements detected</span></div>';
       return;
@@ -665,7 +687,7 @@
      6. ACOUSTIC TELEPROMPTER & LATENCY BUDGET
      ========================================================================== */
   async function transcribeAudio() {
-    els.btnTranscribe.disabled = true;
+    if (els.btnTranscribe) els.btnTranscribe.disabled = true;
     try {
       const res = await fetch('/api/audio');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -674,23 +696,29 @@
       const timeStr = new Date().toLocaleTimeString();
       const text = data.text || 'Intel Lunar Lake microarchitecture delivers hardware-accelerated ambient intelligence at 2.1W.';
 
-      const p = document.createElement('p');
-      p.className = 'transcript-line';
-      p.innerHTML = `<span class="t-stamp">${timeStr}</span> ${escapeHtml(text)}`;
-      els.teleprompterBox.appendChild(p);
-      els.teleprompterBox.scrollTop = els.teleprompterBox.scrollHeight;
+      if (els.teleprompterBox) {
+        const p = document.createElement('p');
+        p.className = 'transcript-line';
+        p.innerHTML = `<span class="t-stamp">${timeStr}</span> ${escapeHtml(text)}`;
+        els.teleprompterBox.appendChild(p);
+        els.teleprompterBox.scrollTop = els.teleprompterBox.scrollHeight;
+      }
 
       // Update budget meter
       const lat = data.latency_ms || 19.63;
       const pass = lat <= 20.0;
-      els.audioBudgetStat.textContent = `${lat.toFixed(2)}ms < 20.00ms (${pass ? 'PASS' : 'WARN'})`;
-      els.audioBudgetStat.className = pass ? 'budget-stat accent-moss' : 'budget-stat accent-ochre';
+      if (els.audioBudgetStat) {
+        els.audioBudgetStat.textContent = `${lat.toFixed(2)}ms < 20.00ms (${pass ? 'PASS' : 'WARN'})`;
+        els.audioBudgetStat.className = pass ? 'budget-stat accent-moss' : 'budget-stat accent-ochre';
+      }
       const pct = Math.min(100, Math.round((lat / 20.0) * 100));
-      els.audioBudgetFill.style.width = `${pct}%`;
+      if (els.audioBudgetFill) {
+        els.audioBudgetFill.style.width = `${pct}%`;
+      }
     } catch (err) {
       console.error('Audio transcribe error:', err);
     } finally {
-      els.btnTranscribe.disabled = false;
+      if (els.btnTranscribe) els.btnTranscribe.disabled = false;
     }
   }
 
@@ -698,72 +726,110 @@
      7. EVENT LISTENERS & INITIALIZATION
      ========================================================================== */
   function initEventListeners() {
-    // Audit Command
-    els.btnRunAudit.addEventListener('click', () => runAuditCommand());
-    els.auditInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') runAuditCommand();
+    // Nav Tab Switching (Double-wired for instant responsiveness)
+    document.querySelectorAll('.nav-tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tabId = btn.getAttribute('data-tab');
+        if (tabId && window.switchTab) {
+          window.switchTab(tabId);
+        }
+      });
     });
+
+    // Audit Command
+    if (els.btnRunAudit) {
+      els.btnRunAudit.addEventListener('click', () => runAuditCommand());
+    }
+    if (els.auditInput) {
+      els.auditInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') runAuditCommand();
+      });
+    }
 
     // Preset Chips
     document.querySelectorAll('.chip').forEach(chip => {
       chip.addEventListener('click', () => {
-        const cmd = chip.getAttribute('data-cmd');
+        const cmd = chip.getAttribute('data-cmd') || chip.textContent.replace(/^safe:\s*|^block:\s*/, '').trim();
         if (cmd) {
-          els.auditInput.value = cmd;
-          runAuditCommand(cmd);
+          if (els.auditInput) els.auditInput.value = cmd;
+          if (window.runCockpitAudit) {
+            window.runCockpitAudit(cmd);
+          } else {
+            runAuditCommand(cmd);
+          }
         }
       });
     });
 
     // Route Prompt
-    els.btnRunRoute.addEventListener('click', () => routePrompt());
-    els.routerInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') routePrompt();
-    });
+    if (els.btnRunRoute) {
+      els.btnRunRoute.addEventListener('click', () => routePrompt());
+    }
+    if (els.routerInput) {
+      els.routerInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') routePrompt();
+      });
+    }
 
     // Swarm
-    els.btnEngageSwarm.addEventListener('click', engageSwarm);
-    els.presetSelect.addEventListener('change', (e) => {
-      const presets = {
-        spsc: 'Implement cache-aligned SPSC ring buffer with Level Zero USM zero-copy bridge in C++',
-        quicksort: 'Write an optimized quicksort function in Python with type annotations and doctests',
-        security: 'Audit application for SQL injection, credential leaks, and unauthenticated API endpoints',
-        mamba: 'Construct Mamba-2 SSD recurrent state test suite in pytest with O(1) memory guarantees',
-      };
-      if (presets[e.target.value]) {
-        els.taskPrompt.value = presets[e.target.value];
-      }
-    });
+    if (els.btnEngageSwarm) {
+      els.btnEngageSwarm.addEventListener('click', engageSwarm);
+    }
+    if (els.presetSelect) {
+      els.presetSelect.addEventListener('change', (e) => {
+        const presets = {
+          spsc: 'Implement cache-aligned SPSC ring buffer with Level Zero USM zero-copy bridge in C++',
+          quicksort: 'Write an optimized quicksort function in Python with type annotations and doctests',
+          security: 'Audit application for SQL injection, credential leaks, and unauthenticated API endpoints',
+          mamba: 'Construct Mamba-2 SSD recurrent state test suite in pytest with O(1) memory guarantees',
+        };
+        if (presets[e.target.value] && els.taskPrompt) {
+          els.taskPrompt.value = presets[e.target.value];
+        }
+      });
+    }
 
     // Copy Code Button
-    els.btnCopyCode.addEventListener('click', async () => {
-      const code = els.swarmCodeOutput.textContent;
-      try {
-        await navigator.clipboard.writeText(code);
-        const origText = els.btnCopyCode.querySelector('span').textContent;
-        els.btnCopyCode.querySelector('span').textContent = 'Copied!';
-        setTimeout(() => {
-          els.btnCopyCode.querySelector('span').textContent = origText;
-        }, 1800);
-      } catch (err) {
-        console.error('Clipboard copy failed:', err);
-      }
-    });
+    if (els.btnCopyCode) {
+      els.btnCopyCode.addEventListener('click', async () => {
+        if (!els.swarmCodeOutput) return;
+        const code = els.swarmCodeOutput.textContent;
+        try {
+          await navigator.clipboard.writeText(code);
+          const span = els.btnCopyCode.querySelector('span');
+          if (span) {
+            const origText = span.textContent;
+            span.textContent = 'Copied!';
+            setTimeout(() => {
+              span.textContent = origText;
+            }, 1800);
+          }
+        } catch (err) {
+          console.error('Clipboard copy failed:', err);
+        }
+      });
+    }
 
     // Vision
-    els.btnCaptureGlance.addEventListener('click', captureScreenGlance);
-    els.visionAutoToggle.addEventListener('change', (e) => {
-      if (e.target.checked) {
-        captureScreenGlance();
-        state.autoVisionTimer = setInterval(captureScreenGlance, 3000);
-      } else {
-        clearInterval(state.autoVisionTimer);
-        state.autoVisionTimer = null;
-      }
-    });
+    if (els.btnCaptureGlance) {
+      els.btnCaptureGlance.addEventListener('click', captureScreenGlance);
+    }
+    if (els.visionAutoToggle) {
+      els.visionAutoToggle.addEventListener('change', (e) => {
+        if (e.target.checked) {
+          captureScreenGlance();
+          state.autoVisionTimer = setInterval(captureScreenGlance, 3000);
+        } else {
+          clearInterval(state.autoVisionTimer);
+          state.autoVisionTimer = null;
+        }
+      });
+    }
 
     // Audio
-    els.btnTranscribe.addEventListener('click', transcribeAudio);
+    if (els.btnTranscribe) {
+      els.btnTranscribe.addEventListener('click', transcribeAudio);
+    }
   }
 
   function escapeHtml(str) {
@@ -877,6 +943,12 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text, role: 'assistant' })
       });
+      if (input) input.value = '';
+    } catch (err) {
+      console.error('Post HUD error:', err);
+    }
+  };
+
   // Cockpit Navigation Tab Switcher
   window.switchTab = function(tabId) {
     document.querySelectorAll('.nav-tab').forEach(b => {
@@ -1013,6 +1085,10 @@
       console.error('Mamba sweep error:', err);
     }
   };
+
+  window.captureScreenGlance = captureScreenGlance;
+  window.engageSwarm = engageSwarm;
+  window.routePrompt = routePrompt;
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
