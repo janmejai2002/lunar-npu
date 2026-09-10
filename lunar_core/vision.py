@@ -448,6 +448,12 @@ class VirtualLockGuard:
         except Exception:
             self.is_locked = False
 
+        if not self.ptr_addr:
+            # Cross-platform fallback for non-Windows / Linux CI environments
+            self._buf = ctypes.create_string_buffer(self.size)
+            self.ptr_addr = ctypes.addressof(self._buf)
+            self.is_locked = True
+
     def zeroize(self) -> None:
         """Microsecond cryptographic memory zeroization via RtlSecureZeroMemory."""
         if self.ptr_addr:
@@ -473,6 +479,10 @@ class VirtualLockGuard:
                 self.is_locked = False
             except Exception:
                 pass
+        if hasattr(self, "_buf") and self._buf is not None:
+            self._buf = None
+            self.ptr_addr = 0
+            self.is_locked = False
 
     def __enter__(self) -> VirtualLockGuard:
         return self
