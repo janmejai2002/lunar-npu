@@ -5,7 +5,7 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "agent-craft": "./bin/agent-craft.js"
+    "agent-craft": "bin/agent-craft.js"
   },
   "type": "module",
   "scripts": {
@@ -25,7 +25,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/janmejai2002/agent-craft.git"
+    "url": "git+https://github.com/janmejai2002/agent-craft.git"
   },
   "homepage": "https://github.com/janmejai2002/agent-craft#readme",
   "bugs": {
