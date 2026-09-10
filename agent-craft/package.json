@@ -12,10 +12,10 @@
     "build": "tsc",
     "watch": "tsc --watch",
     "start": "node ./bin/agent-craft.js",
-    "test": "node --test tests/contrast.test.ts tests/detector.test.ts tests/fixer.test.ts tests/mcp.test.ts",
+    "test": "node --import tsx --test tests/contrast.test.ts tests/detector.test.ts tests/fixer.test.ts tests/mcp.test.ts",
     "test:bun": "bun test",
     "lint": "node ./bin/agent-craft.js audit src/",
-    "prepublishOnly": "tsc && node --test tests/contrast.test.ts tests/detector.test.ts tests/fixer.test.ts tests/mcp.test.ts"
+    "prepublishOnly": "tsc && node --import tsx --test tests/contrast.test.ts tests/detector.test.ts tests/fixer.test.ts tests/mcp.test.ts"
   },
   "files": [
     "dist",
@@ -54,6 +54,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.13.9",
+    "tsx": "^4.23.13",
     "typescript": "^5.8.2"
   },
   "engines": {
