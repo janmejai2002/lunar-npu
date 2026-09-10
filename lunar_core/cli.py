@@ -29,6 +29,10 @@ from lunar_core.mamba_ssm import LunarMambaEngine
 from lunar_core.speculative import LunarSpeculativePipeline
 from lunar_core.vector_memory import LunarVectorMemory
 from lunar_core.router import MicroRouter
+from lunar_core.swarm import LunarSwarm
+from lunar_core.vision import LunarVisionEngine
+from lunar_core.audio import LunarAudioEngine
+from lunar_core.git_time_machine import GitTimeMachine
 
 
 def _output(data: Any, json_mode: bool):
@@ -148,6 +152,151 @@ def route_task(ctx: click.Context, prompt: str, temperature: float, json_mode: b
     router = MicroRouter(memory_engine=vmem)
     decision = router.route(prompt, temperature=temperature)
     _output(decision.to_dict(), json_mode)
+
+
+@cli.command("swarm")
+@click.argument("task_prompt")
+@click.option("--max-tokens", default=128, help="Maximum generated tokens for code synthesis")
+@click.option("--temperature", default=0.1, help="Softmax temperature for persona routing")
+@click.option("--json", "json_mode", is_flag=True, help="Output machine-readable JSON")
+@click.pass_context
+def swarm_command(ctx: click.Context, task_prompt: str, max_tokens: int, temperature: float, json_mode: bool):
+    """Execute end-to-end multi-agent swarm task across NPU & Arc GPU."""
+    engine: LunarNPUEngine = ctx.obj["engine"]
+    json_mode = json_mode or ctx.obj.get("json_mode", False)
+    swarm = LunarSwarm(engine=engine)
+    res = swarm.execute_task(task_prompt, max_tokens=max_tokens, temperature=temperature)
+    if json_mode:
+        click.echo(json.dumps(res.to_dict(), indent=2))
+    else:
+        click.echo("=" * 72)
+        click.echo("       LUNAR MULTI-AGENT SWARM EXECUTION REPORT")
+        click.echo("=" * 72)
+        click.echo(f"  Task Goal         : {res.task}")
+        click.echo(f"  Lead Persona      : {res.lead_persona} (Confidence: {res.route_confidence:.1%})")
+        click.echo(f"  Circuit Breaker   : {res.safety_decision} (Tier: {res.safety_tier})")
+        click.echo(f"  Indexed Memory ID : {res.memory_doc_id}")
+        click.echo(f"  Total Latency     : {res.total_latency_ms:.2f} ms")
+        click.echo("-" * 72)
+        click.echo("  EXECUTION TRACE STAGES:")
+        for s in res.stages:
+            click.echo(f"    • [{s.stage_name}] ({s.device}) {s.latency_ms:.2f}ms — {s.description}")
+        click.echo("-" * 72)
+        click.echo("  GENERATED OUTPUT / CODE:")
+        click.echo(res.generated_content)
+        click.echo("=" * 72)
+
+
+@cli.command("vision")
+@click.argument("image_path", required=False)
+@click.option("--json", "json_mode", is_flag=True, help="Output machine-readable JSON")
+@click.pass_context
+def vision_command(ctx: click.Context, image_path: Optional[str], json_mode: bool):
+    """Run real YOLO11n INT8 object and UI element detection on NPU."""
+    engine: LunarNPUEngine = ctx.obj["engine"]
+    json_mode = json_mode or ctx.obj.get("json_mode", False)
+    vision_engine = LunarVisionEngine(engine=engine)
+    res = vision_engine.analyze(image_input=image_path)
+    if json_mode:
+        click.echo(json.dumps(res.to_dict(), indent=2))
+    else:
+        click.echo("=" * 72)
+        click.echo("       LUNAR NPU EDGE VISION & SCREEN PERCEPTION REPORT")
+        click.echo("=" * 72)
+        click.echo(f"  Source Target     : {res.source}")
+        click.echo(f"  Resolution        : {res.image_width} x {res.image_height}")
+        click.echo(f"  Elements Detected : {res.elements_detected}")
+        click.echo(f"  Perceptual Hash   : {res.phash}")
+        click.echo(f"  Latency / Rate    : {res.latency_ms:.2f} ms ({res.fps:.1f} FPS) on {res.device}")
+        click.echo("-" * 72)
+        click.echo("  DETECTED UI COMPONENTS & BOUNDING BOXES:")
+        for el in res.elements:
+            b = el.bounding_box
+            click.echo(f"    • [{el.element_id}] {el.element_type:<28} (conf: {el.confidence:.3f}) at [{b['x']}, {b['y']}, {b['width']}x{b['height']}]")
+        click.echo("=" * 72)
+
+
+@cli.command("screen")
+@click.option("--json", "json_mode", is_flag=True, help="Output machine-readable JSON")
+@click.pass_context
+def screen_command(ctx: click.Context, json_mode: bool):
+    """Capture live Windows desktop display and segment UI components on NPU in <10ms."""
+    ctx.invoke(vision_command, image_path=None, json_mode=json_mode)
+
+
+@cli.command("transcribe")
+@click.argument("audio_path", required=False)
+@click.option("--language", default="en", help="Target language code (e.g. en, es, de)")
+@click.option("--json", "json_mode", is_flag=True, help="Output machine-readable JSON")
+@click.pass_context
+def transcribe_command(ctx: click.Context, audio_path: Optional[str], language: str, json_mode: bool):
+    """Transcribe speech or audio file using Whisper Tiny on Intel Lunar Lake NPU."""
+    engine: LunarNPUEngine = ctx.obj["engine"]
+    json_mode = json_mode or ctx.obj.get("json_mode", False)
+    audio_engine = LunarAudioEngine(engine=engine)
+    res = audio_engine.transcribe(audio_source=audio_path, language=language)
+    if json_mode:
+        click.echo(json.dumps(res.to_dict(), indent=2))
+    else:
+        click.echo("=" * 72)
+        click.echo("       LUNAR NPU ACOUSTIC WHISPER TRANSCRIPTION REPORT")
+        click.echo("=" * 72)
+        click.echo(f"  Source Audio      : {res.audio_source}")
+        click.echo(f"  Hardware Device   : {res.device} (is_npu={res.is_real_npu})")
+        click.echo(f"  Audio Duration    : {res.audio_duration_s:.2f} s")
+        click.echo(f"  Inference Latency : {res.latency_ms:.2f} ms")
+        click.echo(f"  Real-Time Factor  : {res.real_time_factor:.1f} x")
+        click.echo(f"  Indexed Memory ID : {res.memory_doc_id}")
+        click.echo("-" * 72)
+        click.echo("  TRANSCRIPTION RESULT:")
+        click.echo(f"  \"{res.text}\"")
+        click.echo("=" * 72)
+
+
+@cli.command("git-index")
+@click.option("--max-commits", default=50, help="Maximum number of historical commits to index")
+@click.option("--json", "json_mode", is_flag=True, help="Output machine-readable JSON")
+@click.pass_context
+def git_index_command(ctx: click.Context, max_commits: int, json_mode: bool):
+    """Index local Git commit history into S^383 vector memory on NPU."""
+    engine: LunarNPUEngine = ctx.obj["engine"]
+    json_mode = json_mode or ctx.obj.get("json_mode", False)
+    gtm = GitTimeMachine(engine=engine)
+    count = gtm.index_repository(max_commits=max_commits)
+    res = {"commits_indexed": count, "device": engine.device, "manifold": "S^383"}
+    if json_mode:
+        click.echo(json.dumps(res, indent=2))
+    else:
+        click.echo(f"Indexed {count} git commits into S^383 vector memory on {engine.device}.")
+
+
+@cli.command("git-search")
+@click.argument("query")
+@click.option("--top-k", default=5, help="Number of matching commits to return")
+@click.option("--json", "json_mode", is_flag=True, help="Output machine-readable JSON")
+@click.pass_context
+def git_search_command(ctx: click.Context, query: str, top_k: int, json_mode: bool):
+    """Semantic natural language search across Git commit history in <3ms on NPU."""
+    engine: LunarNPUEngine = ctx.obj["engine"]
+    json_mode = json_mode or ctx.obj.get("json_mode", False)
+    gtm = GitTimeMachine(engine=engine)
+    results = gtm.search(query, top_k=top_k)
+    if json_mode:
+        click.echo(json.dumps([r.to_dict() for r in results], indent=2))
+    else:
+        click.echo("=" * 72)
+        click.echo("       SEMANTIC GIT TIME-MACHINE SEARCH RESULTS")
+        click.echo("=" * 72)
+        click.echo(f"  Search Query      : \"{query}\"")
+        click.echo(f"  Matches Found     : {len(results)}")
+        click.echo("-" * 72)
+        for r in results:
+            click.echo(f"  [{r.commit_hash[:8]}] (Sim: {r.similarity_score:.3f}) {r.author} · {r.date[:10]}")
+            click.echo(f"    Message : {r.message}")
+            if r.files_changed:
+                click.echo(f"    Files   : {', '.join(r.files_changed[:4])}")
+            click.echo("")
+        click.echo("=" * 72)
 
 
 @cli.command("benchmark")

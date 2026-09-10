@@ -20,6 +20,9 @@ from lunar_core.mamba_ssm import LunarMambaEngine
 from lunar_core.vector_memory import LunarVectorMemory
 from lunar_core.circuit_breaker import SiliconCircuitBreaker
 from lunar_core.router import MicroRouter
+from lunar_core.swarm import LunarSwarm
+from lunar_core.vision import LunarVisionEngine
+from lunar_core.audio import LunarAudioEngine
 
 
 TOOLS_DEFINITIONS = [
@@ -121,6 +124,59 @@ TOOLS_DEFINITIONS = [
             "additionalProperties": False,
         },
     },
+    {
+        "name": "lunar_swarm_execute",
+        "description": "Execute end-to-end multi-agent swarm task: NPU intent routing, local Qwen2.5-Coder code synthesis, circuit breaker safety check, and S^383 vector memory commit.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "prompt": {
+                    "type": "string",
+                    "description": "Task description or coding instruction.",
+                },
+                "max_tokens": {
+                    "type": "integer",
+                    "description": "Maximum generated tokens (default 128).",
+                    "default": 128,
+                },
+            },
+            "required": ["prompt"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "lunar_vision_analyze",
+        "description": "Analyze desktop screen or image using YOLO11n INT8 on Intel NPU to extract UI bounding boxes in <10ms.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "image_path": {
+                    "type": "string",
+                    "description": "Optional image filepath. If omitted, captures active desktop.",
+                },
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "lunar_audio_transcribe",
+        "description": "Transcribe speech or audio file using Whisper Tiny on Intel NPU in real time (>1,800x RTF).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "audio_path": {
+                    "type": "string",
+                    "description": "Optional audio filepath. If omitted, captures microphone stream.",
+                },
+                "language": {
+                    "type": "string",
+                    "description": "Target language code (default en).",
+                    "default": "en",
+                },
+            },
+            "additionalProperties": False,
+        },
+    },
 ]
 
 
@@ -134,6 +190,9 @@ class LunarMCPServer:
         self.vmem = LunarVectorMemory(engine=self.engine, embedding_dim=384)
         self.cb = SiliconCircuitBreaker(engine=self.engine)
         self.router = MicroRouter(memory_engine=self.vmem)
+        self._swarm: Optional[LunarSwarm] = None
+        self._vision: Optional[LunarVisionEngine] = None
+        self._audio: Optional[LunarAudioEngine] = None
 
         # Seed default architectural memory if empty
         if not self.vmem.documents:
@@ -252,6 +311,29 @@ class LunarMCPServer:
             temp = float(args.get("temperature", 0.1))
             decision = self.router.route(prompt, temperature=temp)
             return json.dumps(decision.to_dict(), indent=2)
+
+        elif name == "lunar_swarm_execute":
+            if self._swarm is None:
+                self._swarm = LunarSwarm(engine=self.engine, memory=self.vmem)
+            prompt = args["prompt"]
+            max_tokens = int(args.get("max_tokens", 128))
+            res = self._swarm.execute_task(prompt, max_tokens=max_tokens)
+            return json.dumps(res.to_dict(), indent=2)
+
+        elif name == "lunar_vision_analyze":
+            if self._vision is None:
+                self._vision = LunarVisionEngine(engine=self.engine, memory=self.vmem)
+            img_path = args.get("image_path")
+            res = self._vision.analyze(image_input=img_path)
+            return json.dumps(res.to_dict(), indent=2)
+
+        elif name == "lunar_audio_transcribe":
+            if self._audio is None:
+                self._audio = LunarAudioEngine(engine=self.engine, memory=self.vmem)
+            audio_path = args.get("audio_path")
+            lang = args.get("language", "en")
+            res = self._audio.transcribe(audio_source=audio_path, language=lang)
+            return json.dumps(res.to_dict(), indent=2)
 
         else:
             raise ValueError(f"Unknown tool: {name}")
