@@ -126,6 +126,7 @@ class SiliconTelemetry:
 
     def summary(self) -> Dict[str, Any]:
         uptime_sec = time.time() - self.start_time
+        total_ops = self.total_embeddings + self.total_routed_prompts + self.total_circuit_audits + self.total_mamba_steps
         # Token Savings Model based on Cloud API displacement (Claude 3.5 Sonnet / GPT-4o @ $15/M)
         tokens_cb = self.total_circuit_audits * 800        # Deterministic 1.54µs DFA vs LLM guardrail prompt
         tokens_router = self.total_routed_prompts * 600    # Geodesic S^383 centroid vs cloud router call
