@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lunar Studio HUD — Intel Lunar Lake Sovereign Command Deck</title>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Top Hardware Strip -->
+  <header class="top-strip">
+    <div class="strip-left">
+      <div class="brand">
+        <div class="brand-glyph">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 1 12 2z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+        </div>
+        <div class="brand-meta">
+          <div class="brand-title">LUNARNPU SOVEREIGN COMMAND DECK</div>
+          <div class="brand-subtitle">INTEL LUNAR LAKE CORE ULTRA 7 258V • AMBIENT INTELLIGENCE</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="strip-center">
+      <!-- Hardware Telemetry Pills -->
+      <div class="spec-pill" title="Intel AI Boost NPU 4000 Compute Engine">
+        <span class="pill-dot pulse-moss"></span>
+        <span class="pill-label">NPU 4000</span>
+        <span class="pill-val" id="npu-tops-val">47 TOPS INT8</span>
+      </div>
+
+      <div class="spec-pill" title="Physical Intel RAPL SoC Power Sensor">
+        <span class="pill-label">RAPL</span>
+        <div class="rapl-mini-meter">
+          <div class="rapl-mini-bar" id="rapl-meter-bar" style="width: 84%;"></div>
+        </div>
+        <span class="pill-val accent-moss" id="rapl-wattage-val">2.10W / 2.50W</span>
+      </div>
+
+      <div class="spec-pill" title="6 Physical NCE Tiles (2 SHAVE DSP + 4 Vector/Matrix Tiles)">
+        <span class="pill-label">TILES</span>
+        <span class="pill-val accent-ochre" id="tiles-val">2 DSP + 4 NCE</span>
+      </div>
+
+      <div class="spec-pill" title="UMA On-Package LPDDR5X-8533 State Restore">
+        <span class="pill-label">UMA RESTORE</span>
+        <span class="pill-val accent-water">&lt;15μs</span>
+      </div>
+    </div>
+
+    <div class="strip-right">
+      <div class="stat-pill" title="Systolic Vector Manifold Document Count">
+        <span class="stat-num" id="stat-vault-docs">5</span>
+        <span class="stat-text">Docs in S³⁸³</span>
+      </div>
+      <div class="stat-pill" title="Estimated Cloud Token Dollars Saved">
+        <span class="stat-num accent-moss" id="stat-saved-dollars">$0.0482</span>
+        <span class="stat-text">Cloud Saved</span>
+      </div>
+      <div class="status-indicator">
+        <span class="live-dot pulse-moss"></span>
+        <span class="live-text" id="daemon-status">127.0.0.1:8899</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main 3-Column Command Deck Layout -->
+  <main class="deck-grid">
+    
+    <!-- ================================================================= -->
+    <!-- LEFT COLUMN: SAFETY & GEODESIC ROUTING -->
+    <!-- ================================================================= -->
+    <section class="deck-column col-left">
+      
+      <!-- 1. Dual-Stage Silicon Circuit Breaker Feed -->
+      <div class="card card-circuit-breaker">
+        <div class="card-header">
+          <div class="card-title-wrap">
+            <svg class="card-icon accent-amber" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+            </svg>
+            <h2 class="card-title">Dual-Stage Circuit Breaker</h2>
+          </div>
+          <div class="badge-group">
+            <span class="badge badge-stage" title="Stage 1 Aho-Corasick DFA">STAGE 1: &lt;2µs</span>
+            <span class="badge badge-stage2" title="Stage 2 NPU Neural Gate">STAGE 2: &lt;2ms</span>
+          </div>
+        </div>
+
+        <div class="card-subhead">
+          <span>Zero-Cost Deterministic Shell Interception Gate</span>
+          <span class="subhead-pill" id="breaker-summary-pill">0% FN • Active</span>
+        </div>
+
+        <!-- Interactive Command Test Box -->
+        <div class="interactive-box">
+          <div class="input-with-action">
+            <input type="text" id="audit-cmd-input" class="code-input" placeholder="Type shell command e.g. git status, rm -rf /" value="git status">
+            <button id="btn-run-audit" class="btn btn-primary" title="Audit command against Dual-Stage Circuit Breaker">
+              <span>Audit</span>
+            </button>
+          </div>
+
+          <!-- Quick Test Preset Chips -->
+          <div class="chip-row">
+            <button class="chip chip-safe" data-cmd="git status">safe: git status</button>
+            <button class="chip chip-safe" data-cmd="pytest tests/ -q">safe: pytest</button>
+            <button class="chip chip-danger" data-cmd="rm -rf /">block: rm -rf /</button>
+            <button class="chip chip-danger" data-cmd="DROP TABLE users;">block: DROP</button>
+          </div>
+
+          <!-- Audit Result Display -->
+          <div class="audit-verdict-box" id="audit-verdict-box">
+            <div class="verdict-header">
+              <span class="verdict-status status-allowed" id="verdict-badge">ALLOWED</span>
+              <span class="verdict-tier" id="verdict-tier">STAGE 1: DFA_REGEX_GATE</span>
+              <span class="verdict-lat" id="verdict-latency">1.82 µs</span>
+            </div>
+            <div class="verdict-reason" id="verdict-reason">Safe command verified against Aho-Corasick deterministic automaton.</div>
+          </div>
+        </div>
+
+        <!-- Live Audit Activity Feed -->
+        <div class="feed-section">
+          <div class="feed-title-row">
+            <span class="feed-label">Recent Interception Logs</span>
+            <span class="feed-counter" id="audit-count">615 Audits</span>
+          </div>
+          <div class="feed-list" id="audit-feed-list">
+            <!-- Dynamic audit items -->
+            <div class="feed-item">
+              <div class="feed-item-top">
+                <span class="tag tag-allowed">ALLOWED</span>
+                <span class="feed-cmd">powershell -Command "Get-Process"</span>
+                <span class="feed-time">2.1µs</span>
+              </div>
+            </div>
+            <div class="feed-item">
+              <div class="feed-item-top">
+                <span class="tag tag-blocked">BLOCKED</span>
+                <span class="feed-cmd">rm -rf /usr/bin</span>
+                <span class="feed-time">1.6µs</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. S^383 Geodesic MicroRouter -->
+      <div class="card card-router">
+        <div class="card-header">
+          <div class="card-title-wrap">
+            <svg class="card-icon accent-ochre" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="2" y1="12" x2="22" y2="12"/>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+            </svg>
+            <h2 class="card-title">S³⁸³ Geodesic MicroRouter</h2>
+          </div>
+          <span class="badge badge-ochre">&lt;3ms Geodesic</span>
+        </div>
+
+        <div class="card-subhead">
+          <span>Riemannian Unit Hypersphere Manifold</span>
+          <span class="subhead-pill">Fréchet η=0.015</span>
+        </div>
+
+        <!-- Radar / Arc Distance Canvas -->
+        <div class="router-canvas-wrap">
+          <canvas id="geodesic-radar-canvas" width="340" height="210"></canvas>
+          <div class="radar-legend">
+            <span class="legend-item"><span class="dot dot-coder"></span>Coder</span>
+            <span class="legend-item"><span class="dot dot-arch"></span>Architect</span>
+            <span class="legend-item"><span class="dot dot-devops"></span>DevOps</span>
+            <span class="legend-item"><span class="dot dot-auditor"></span>Auditor</span>
+          </div>
+        </div>
+
+        <!-- Interactive Router Input -->
+        <div class="interactive-box">
+          <div class="input-with-action">
+            <input type="text" id="router-prompt-input" class="code-input" placeholder="Type prompt to project onto S³⁸³..." value="Implement cache-line aligned SPSC ring buffer">
+            <button id="btn-run-route" class="btn btn-secondary">
+              <span>Route</span>
+            </button>
+          </div>
+
+          <div class="route-result-box" id="route-result-box">
+            <div class="route-res-top">
+              <span class="route-target-badge" id="route-target-badge">CODER</span>
+              <div class="route-conf-bar-wrap">
+                <div class="route-conf-bar" id="route-conf-bar" style="width: 94.2%;"></div>
+              </div>
+              <span class="route-conf-val" id="route-conf-val">94.2%</span>
+            </div>
+            <div class="route-res-detail" id="route-res-detail">
+              Geodesic arc: <strong id="route-arc-rad">0.342 rad</strong> • Latency: <strong id="route-lat-val">2.15 ms</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ================================================================= -->
+    <!-- CENTER STAGE: MULTI-AGENT SWARM & CYCLIC FEEDBACK -->
+    <!-- ================================================================= -->
+    <section class="deck-column col-center">
+      
+      <!-- 1. Interactive Swarm Mission Bar & Cyclic Deck -->
+      <div class="card card-swarm-mission">
+        <div class="card-header">
+          <div class="card-title-wrap">
+            <svg class="card-icon accent-moss" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+            <h2 class="card-title">Heterogeneous Multi-Agent Swarm</h2>
+          </div>
+          <div class="swarm-meta-badges">
+            <span class="badge badge-water" title="Routing & Guardrails">NPU 4000</span>
+            <span class="badge badge-plum" title="Arc 140V Xe2 GPU Code Gen">Qwen2.5-Coder INT4</span>
+          </div>
+        </div>
+
+        <div class="card-subhead">
+          <span>Continuous Lyapunov Error Contraction with Git Worktree Isolation</span>
+          <span class="subhead-pill accent-moss" id="swarm-status-pill">System Ready</span>
+        </div>
+
+        <!-- Swarm Task Dispatch Bar -->
+        <div class="mission-bar-wrap">
+          <div class="mission-input-row">
+            <textarea id="swarm-task-prompt" class="mission-textarea" rows="2" placeholder="Dispatch autonomous task across heterogeneous silicon...">Implement cache-aligned SPSC ring buffer with Level Zero USM zero-copy bridge in C++</textarea>
+          </div>
+          
+          <div class="mission-controls">
+            <div class="mission-options">
+              <label class="toggle-control" title="Engage 4-persona Lyapunov feedback loop">
+                <input type="checkbox" id="swarm-cyclic-toggle" checked>
+                <span class="toggle-slider"></span>
+                <span class="toggle-label">Cyclic Loop (Lyapunov)</span>
+              </label>
+
+              <div class="select-wrapper">
+                <span class="sel-label">Preset:</span>
+                <select id="swarm-preset-select" class="preset-dropdown">
+                  <option value="spsc">SPSC Ring Buffer (C++)</option>
+                  <option value="quicksort">Quicksort + Docstrings</option>
+                  <option value="security">Audit SQL & Token Leaks</option>
+                  <option value="mamba">Mamba-2 Recurrence Test</option>
+                </select>
+              </div>
+            </div>
+
+            <button id="btn-engage-swarm" class="btn btn-primary btn-large">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="5 3 19 12 5 21 5 3"/>
+              </svg>
+              <span>Engage Swarm</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 2. Visual Cyclic State Machine -->
+        <div class="cyclic-state-machine">
+          <div class="state-node" id="node-architect" data-role="ARCHITECT">
+            <div class="node-icon">📐</div>
+            <div class="node-info">
+              <span class="node-name">Architect</span>
+              <span class="node-hw">NPU Tile 1</span>
+            </div>
+            <div class="node-pulse"></div>
+          </div>
+          <div class="state-arrow">➔</div>
+
+          <div class="state-node active" id="node-coder" data-role="CODER">
+            <div class="node-icon">💻</div>
+            <div class="node-info">
+              <span class="node-name">Coder</span>
+              <span class="node-hw">Arc GPU</span>
+            </div>
+            <div class="node-pulse"></div>
+          </div>
+          <div class="state-arrow">➔</div>
+
+          <div class="state-node" id="node-auditor" data-role="SECURITY_AUDITOR">
+            <div class="node-icon">🛡️</div>
+            <div class="node-info">
+              <span class="node-name">Auditor</span>
+              <span class="node-hw">NCE Tile 5</span>
+            </div>
+            <div class="node-pulse"></div>
+          </div>
+          <div class="state-arrow">➔</div>
+
+          <div class="state-node" id="node-devops" data-role="TESTER_DEVOPS">
+            <div class="node-icon">🚀</div>
+            <div class="node-info">
+              <span class="node-name">DevOps</span>
+              <span class="node-hw">Host CPU</span>
+            </div>
+            <div class="node-pulse"></div>
+          </div>
+        </div>
+
+        <!-- 3. Lyapunov Convergence Meter -->
+        <div class="lyapunov-meter-card">
+          <div class="meter-head">
+            <div class="meter-title">
+              <span>Lyapunov Energy Contraction</span>
+              <code class="math-code">E_k = w₁N_fail + w₂N_lint + w₃P(H) + w₄D_AST → 0</code>
+            </div>
+            <div class="meter-val-tag" id="lyapunov-val-tag">E_k = 0.0000 (CONVERGED)</div>
+          </div>
+
+          <div class="lyapunov-track">
+            <div class="lyapunov-bar" id="lyapunov-fill-bar" style="width: 100%;"></div>
+          </div>
+
+          <div class="trajectory-steps" id="trajectory-steps-row">
+            <div class="step-chip step-pass">
+              <span class="step-iter">k=1</span>
+              <span class="step-name">Architect Spec</span>
+              <span class="step-err">E₁: 1.0</span>
+            </div>
+            <div class="step-chip step-pass">
+              <span class="step-iter">k=2</span>
+              <span class="step-name">GPU Synthesis</span>
+              <span class="step-err">E₂: 0.5</span>
+            </div>
+            <div class="step-chip step-converged">
+              <span class="step-iter">k=3</span>
+              <span class="step-name">Auditor Clean</span>
+              <span class="step-err">E₃: 0.00</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. Code Synthesis & Diff Viewer -->
+        <div class="code-viewer-wrap">
+          <div class="viewer-header">
+            <div class="viewer-meta">
+              <span class="viewer-lang">PYTHON / C++</span>
+              <span class="viewer-worktree" id="swarm-worktree-path">Worktree: .lunar/worktrees/swarm_live</span>
+            </div>
+            <div class="viewer-actions">
+              <button id="btn-copy-code" class="btn-icon" title="Copy code snippet">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                </svg>
+                <span>Copy</span>
+              </button>
+            </div>
+          </div>
+
+          <pre class="code-pre"><code id="swarm-code-output" class="code-block"># Heterogeneous Swarm Synthesized Implementation
+# Architect: Contract approved • Circuit Breaker: Stage 1 ALLOWED (0% FN)
+class SPSCRingBuffer:
+    """Zero-copy Level Zero USM Speculative Ring Buffer on Intel Lunar Lake."""
+    def __init__(self, capacity: int = 4096):
+        self.capacity = capacity
+        self.head = 0
+        self.tail = 0
+        self.buffer = [None] * capacity
+
+    def push(self, item) -> bool:
+        if (self.tail + 1) % self.capacity == self.head:
+            return False  # Buffer full
+        self.buffer[self.tail] = item
+        self.tail = (self.tail + 1) % self.capacity
+        return True
+
+    def pop(self):
+        if self.head == self.tail:
+            return None  # Empty
+        item = self.buffer[self.head]
+        self.head = (self.head + 1) % self.capacity
+        return item</code></pre>
+
+          <div class="swarm-metrics-footer" id="swarm-metrics-footer">
+            <span class="sm-item">Latency: <strong id="sm-lat">42.8 ms</strong></span>
+            <span class="sm-item">Lead: <strong id="sm-lead">CODER</strong></span>
+            <span class="sm-item">Safety: <strong id="sm-safe" class="accent-moss">ALLOWED (DFA)</strong></span>
+            <span class="sm-item">Memory ID: <strong id="sm-mem">swarm_coder_912</strong></span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+
+    <!-- ================================================================= -->
+    <!-- RIGHT COLUMN: MULTIMODAL PERCEPTION -->
+    <!-- ================================================================= -->
+    <section class="deck-column col-right">
+      
+      <!-- 1. Live Screen Perception Viewport -->
+      <div class="card card-vision">
+        <div class="card-header">
+          <div class="card-title-wrap">
+            <svg class="card-icon accent-water" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+              <line x1="8" y1="21" x2="16" y2="21"/>
+              <line x1="12" y1="17" x2="12" y2="21"/>
+            </svg>
+            <h2 class="card-title">Live Screen Perception</h2>
+          </div>
+          <span class="badge badge-water" id="vision-fps-badge">140+ FPS NPU</span>
+        </div>
+
+        <div class="card-subhead">
+          <span>YOLO11n UI Bounding Boxes &amp; Sovereign Rewind OCR</span>
+          <span class="subhead-pill accent-water" id="vision-summary-pill">Active Desktop</span>
+        </div>
+
+        <!-- Interactive Screen Viewport Canvas -->
+        <div class="viewport-canvas-wrap">
+          <canvas id="screen-perception-canvas" width="480" height="270"></canvas>
+          <div class="canvas-overlay-badges">
+            <span class="overlay-tag" id="screen-dims">1920×1080</span>
+            <span class="overlay-tag" id="screen-lat">3.8 ms</span>
+          </div>
+        </div>
+
+        <!-- Vision Perception Details & Controls -->
+        <div class="vision-controls-row">
+          <button id="btn-capture-glance" class="btn btn-primary" title="Trigger instant screen perception pass on NPU">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+            <span>Capture Glance</span>
+          </button>
+
+          <label class="toggle-control" title="Auto-refresh screen perception every 3 seconds">
+            <input type="checkbox" id="vision-auto-toggle">
+            <span class="toggle-slider"></span>
+            <span class="toggle-label">Auto (3s)</span>
+          </label>
+        </div>
+
+        <!-- Optical Delta & PII Shield Indicators -->
+        <div class="vision-indicators-grid">
+          <div class="indicator-box" title="64-bit DCT Perceptual Hashing & DXGI Dirty-Rects">
+            <div class="ind-head">
+              <span class="ind-title">Optical Delta Gating</span>
+              <span class="ind-dot pulse-water"></span>
+            </div>
+            <div class="ind-val" id="optical-phash-val">pHash: 4a9f...e201</div>
+            <div class="ind-desc">Static screen gate (&le;2 bit delta drops frame)</div>
+          </div>
+
+          <div class="indicator-box" title="Deterministic Luhn PII & API Secret Redactor">
+            <div class="ind-head">
+              <span class="ind-title">PII Redaction Shield</span>
+              <span class="ind-dot pulse-moss"></span>
+            </div>
+            <div class="ind-val accent-moss" id="pii-shield-val">SHIELD ACTIVE</div>
+            <div class="ind-desc">Luhn card scrubbing • 0 leaks exposed</div>
+          </div>
+        </div>
+
+        <!-- Detected Elements List -->
+        <div class="elements-list-wrap">
+          <div class="elements-list-header">
+            <span>Detected UI Components</span>
+            <span class="elem-count-badge" id="elem-count-badge">4 Elements</span>
+          </div>
+          <div class="elements-table" id="elements-table">
+            <div class="elem-row">
+              <span class="elem-type">Window Header</span>
+              <span class="elem-coords">x:0 y:0 w:1920 h:38</span>
+              <span class="elem-conf accent-moss">99.2%</span>
+            </div>
+            <div class="elem-row">
+              <span class="elem-type">Sidebar Navigation</span>
+              <span class="elem-coords">x:0 y:38 w:260 h:980</span>
+              <span class="elem-conf accent-moss">98.5%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- 2. Acoustic Teleprompter Card -->
+      <div class="card card-audio">
+        <div class="card-header">
+          <div class="card-title-wrap">
+            <svg class="card-icon accent-plum" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+              <line x1="12" y1="19" x2="12" y2="23"/>
+              <line x1="8" y1="23" x2="16" y2="23"/>
+            </svg>
+            <h2 class="card-title">Acoustic Teleprompter</h2>
+          </div>
+          <span class="badge badge-plum">&gt;1,800x RTF</span>
+        </div>
+
+        <div class="card-subhead">
+          <span>Whisper Tiny INT8 on NPU 4000 • WASAPI Loopback</span>
+          <span class="subhead-pill accent-plum">Sub-20ms Budget</span>
+        </div>
+
+        <!-- Glass-to-Glass Latency Budget Meter -->
+        <div class="teleprompter-budget-box">
+          <div class="budget-title-row">
+            <span>Glass-to-Glass Latency Budget:</span>
+            <strong class="budget-stat accent-moss" id="audio-budget-stat">19.63ms &lt; 20.00ms (PASS)</strong>
+          </div>
+          <div class="budget-meter-track">
+            <div class="budget-meter-fill" id="audio-budget-fill" style="width: 78%;"></div>
+          </div>
+          <div class="budget-legend">
+            <span>WASAPI: 4.2ms</span>
+            <span>SHAVE FFT: 1.8ms</span>
+            <span>Whisper NPU: 12.4ms</span>
+            <span>IPC: 1.2ms</span>
+          </div>
+        </div>
+
+        <!-- Teleprompter Transcription Feed -->
+        <div class="teleprompter-feed-wrap">
+          <div class="feed-header">
+            <span class="feed-sublabel">Live Acoustic Stream</span>
+            <button id="btn-transcribe" class="btn btn-secondary btn-small">
+              <span>Transcribe</span>
+            </button>
+          </div>
+          
+          <div class="teleprompter-text-box" id="teleprompter-text-box">
+            <p class="transcript-line"><span class="t-stamp">21:07:12</span> Intel Lunar Lake microarchitecture features 6 NCE physical tiles delivering 47 TOPS INT8 at 2.5W package power.</p>
+            <p class="transcript-line"><span class="t-stamp">21:07:28</span> Dual-Stage silicon circuit breakers enforce sub-2 microsecond deterministic kernel guardrails via Aho-Corasick DFA.</p>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

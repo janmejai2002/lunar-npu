@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lunar-core"
-version = "1.0.0"
+version = "2.0.0"
 description = "Intel Lunar Lake NPU Ambient Intelligence & Edge Neural Processing Platform"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -64,6 +64,9 @@ lunar-core = "lunar_core.cli:main"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["lunar_core*"]
+
+[tool.setuptools.package-data]
+lunar_core = ["web/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

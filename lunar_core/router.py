@@ -178,3 +178,149 @@ class MicroRouter:
             rationale=rationale,
             top_alternatives=alternatives,
         )
+
+
+# ============================================================================
+# PILLAR 4: GEODESIC MICROROUTER WITH ONLINE RIEMANNIAN CALIBRATION
+# ============================================================================
+
+
+class GeodesicMicroRouter(MicroRouter):
+    """
+    Geodesic MicroRouter with Online Riemannian Fréchet Mean Calibration.
+    Projects prompts onto unit hypersphere S^383 and classifies task intent
+    based on minimal Riemannian geodesic distance (great-circle arc length).
+    Supports online Fréchet retraction updates on task success and orthogonal
+    repulsion updates on routing errors.
+    """
+
+    def __init__(self, memory_engine: Optional[LunarVectorMemory] = None) -> None:
+        super().__init__(memory_engine=memory_engine)
+        self.geodesic_history: List[Dict[str, Any]] = []
+
+    def compute_geodesic_distance(self, vec_u: np.ndarray, vec_v: np.ndarray) -> float:
+        """
+        Calculates Riemannian geodesic distance (arc length in radians) on S^383:
+        d_g(u, v) = arccos(clip(<u, v>, -1.0, 1.0))
+        """
+        dot = float(np.dot(vec_u, vec_v))
+        clipped = max(-1.0, min(1.0, dot))
+        return float(math.acos(clipped))
+
+    def route_geodesic(self, prompt: str, temperature: float = 0.1) -> Tuple[RouteDecision, Dict[str, float]]:
+        """
+        Routes task by computing geodesic distance to all archetype centroids.
+        Returns: (RouteDecision, geodesic_distances_radians)
+        """
+        t0 = time.perf_counter()
+        res = self.memory.embed(prompt)
+        query_vec = res[0] if isinstance(res, (tuple, list)) else res
+
+        # Ensure query is normalized onto S^383
+        norm = np.linalg.norm(query_vec)
+        if norm > 1e-9:
+            query_vec = query_vec / norm
+
+        geodesic_distances: Dict[str, float] = {}
+        for archetype, centroid in self.centroids.items():
+            # If dimensions differ, adapt
+            c = centroid
+            q = query_vec
+            if c.shape != q.shape:
+                min_dim = min(c.size, q.size)
+                c = c[:min_dim] / max(np.linalg.norm(c[:min_dim]), 1e-9)
+                q = q[:min_dim] / max(np.linalg.norm(q[:min_dim]), 1e-9)
+
+            dist_rad = self.compute_geodesic_distance(q, c)
+            geodesic_distances[archetype] = dist_rad
+
+        # Standard hybrid route for confidence and compatibility
+        base_decision = self.route(prompt, temperature=temperature)
+        dur_ms = (time.perf_counter() - t0) * 1000.0
+
+        record = {
+            "prompt": prompt,
+            "target": base_decision.target_agent,
+            "geodesic_distances": geodesic_distances,
+            "latency_ms": dur_ms,
+            "timestamp": time.time(),
+        }
+        self.geodesic_history.append(record)
+        return base_decision, geodesic_distances
+
+    def update_frechet_retraction(self, archetype: str, prompt_or_vec: Any, eta: float = 0.015) -> float:
+        """
+        Online Riemannian Fréchet Mean Retraction Update (Equation 22.2):
+        C_k^(t+1) = Retr((1 - eta) * C_k^(t) + eta * q)
+        Adapts agent centroid toward successful execution trajectory.
+        Returns: delta angle in radians.
+        """
+        arch_key = archetype.upper()
+        if arch_key not in self.centroids:
+            raise KeyError(f"Archetype '{archetype}' not found")
+
+        if isinstance(prompt_or_vec, str):
+            res = self.memory.embed(prompt_or_vec)
+            q = res[0] if isinstance(res, (tuple, list)) else res
+        else:
+            q = np.asarray(prompt_or_vec, dtype=np.float32)
+
+        norm_q = np.linalg.norm(q)
+        if norm_q > 1e-9:
+            q = q / norm_q
+
+        old_centroid = self.centroids[arch_key]
+        if old_centroid.shape != q.shape:
+            min_dim = min(old_centroid.size, q.size)
+            old_centroid = old_centroid[:min_dim]
+            q = q[:min_dim]
+
+        # Riemannian Retraction (Linear combination followed by sphere projection)
+        updated = (1.0 - eta) * old_centroid + eta * q
+        norm_u = np.linalg.norm(updated)
+        new_centroid = (updated / norm_u).astype(np.float32) if norm_u > 1e-9 else old_centroid
+
+        # Measure delta angle
+        delta_angle = self.compute_geodesic_distance(old_centroid, new_centroid)
+        self.centroids[arch_key] = new_centroid
+        return delta_angle
+
+    def update_orthogonal_repulsion(self, archetype: str, prompt_or_vec: Any, beta: float = 0.01) -> float:
+        """
+        Orthogonal Negative Repulsion Update (Equation 22.3):
+        Pushes centroid away from misclassified negative exemplar.
+        Returns: delta angle in radians.
+        """
+        arch_key = archetype.upper()
+        if arch_key not in self.centroids:
+            raise KeyError(f"Archetype '{archetype}' not found")
+
+        if isinstance(prompt_or_vec, str):
+            res = self.memory.embed(prompt_or_vec)
+            q = res[0] if isinstance(res, (tuple, list)) else res
+        else:
+            q = np.asarray(prompt_or_vec, dtype=np.float32)
+
+        norm_q = np.linalg.norm(q)
+        if norm_q > 1e-9:
+            q = q / norm_q
+
+        old_centroid = self.centroids[arch_key]
+        if old_centroid.shape != q.shape:
+            min_dim = min(old_centroid.size, q.size)
+            old_centroid = old_centroid[:min_dim]
+            q = q[:min_dim]
+
+        # Orthogonal component: q_perp = q - <q, C> * C
+        proj = float(np.dot(q, old_centroid))
+        q_perp = q - proj * old_centroid
+
+        # Subtract orthogonal component
+        updated = old_centroid - beta * q_perp
+        norm_u = np.linalg.norm(updated)
+        new_centroid = (updated / norm_u).astype(np.float32) if norm_u > 1e-9 else old_centroid
+
+        delta_angle = self.compute_geodesic_distance(old_centroid, new_centroid)
+        self.centroids[arch_key] = new_centroid
+        return delta_angle
+
