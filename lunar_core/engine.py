@@ -13,6 +13,14 @@ import numpy as np
 import openvino as ov
 
 
+from enum import Enum
+
+
+class NPUProfile(str, Enum):
+    AMBIENT = "ambient"   # 2 NCE tiles (0-1), 1.25GHz, <=2.5W, fanless continuous sensing
+    SURGE = "surge"       # 6 NCE tiles (0-5), 1.95GHz turbo, 47 TOPS peak, heavy workloads
+
+
 class LunarNPUEngine:
     """Production NPU compilation manager and device orchestrator."""
 
@@ -24,6 +32,7 @@ class LunarNPUEngine:
         target_device: Optional[str] = None,
         turbo_mode: bool = True,
         max_tiles: int = 6,
+        profile: Union[str, NPUProfile] = NPUProfile.SURGE,
     ) -> None:
         self.cache_path = Path(cache_dir).expanduser().resolve() if cache_dir else self.DEFAULT_CACHE_DIR
         self.cache_path.mkdir(parents=True, exist_ok=True)
@@ -41,6 +50,8 @@ class LunarNPUEngine:
             self.device = "CPU"
 
         self.is_npu = (self.device == "NPU")
+        self.turbo_mode = turbo_mode
+        self.max_tiles = max_tiles
 
         # Compiler and execution property dictionary
         self.config: Dict[str, Any] = {
@@ -53,6 +64,54 @@ class LunarNPUEngine:
                 self.config["NPU_TURBO"] = "YES"
             self.config["NPU_QDQ_OPTIMIZATION"] = "YES"
             self.config["NPU_MAX_TILES"] = str(max_tiles)
+
+        self._profile = NPUProfile.SURGE
+        self.set_profile(profile)
+
+    @property
+    def current_profile(self) -> str:
+        """Return the name of the active NPU operational profile."""
+        return self._profile.value
+
+    def set_profile(self, profile: Union[str, NPUProfile]) -> Dict[str, Any]:
+        """
+        Dynamically switch NPU operating profile between AMBIENT (2 tiles, <=2.5W)
+        and SURGE (6 tiles, 47 TOPS INT8 max).
+        """
+        if isinstance(profile, str):
+            prof_str = profile.lower().strip()
+            if prof_str in ("surge", "max", "turbo", "full", "burst"):
+                self._profile = NPUProfile.SURGE
+            else:
+                self._profile = NPUProfile.AMBIENT
+        elif isinstance(profile, NPUProfile):
+            self._profile = profile
+        else:
+            self._profile = NPUProfile.AMBIENT
+
+        if self._profile == NPUProfile.SURGE:
+            self.max_tiles = 6
+            self.turbo_mode = True
+            if self.is_npu:
+                self.config["NPU_TURBO"] = "YES"
+                self.config["NPU_MAX_TILES"] = "6"
+                self.config["PERFORMANCE_HINT"] = "THROUGHPUT"
+        else:
+            self.max_tiles = 2
+            self.turbo_mode = False
+            if self.is_npu:
+                self.config["NPU_TURBO"] = "NO"
+                self.config["NPU_MAX_TILES"] = "2"
+                self.config["PERFORMANCE_HINT"] = "LATENCY"
+
+        return {
+            "profile": self._profile.value,
+            "max_tiles": self.max_tiles,
+            "turbo": self.turbo_mode,
+            "peak_int8_tops": 46.69 if (self._profile == NPUProfile.SURGE and self.is_npu) else (15.56 if self.is_npu else 0.0),
+            "target_power_w": 2.50 if self._profile == NPUProfile.AMBIENT else 28.0,
+            "description": "47 TOPS Max Throttle (All 6 NCE Tiles)" if self._profile == NPUProfile.SURGE else "Ambient Sovereign (<2.5W Fanless Sensing)",
+        }
 
     @property
     def device_info(self) -> Dict[str, Any]:

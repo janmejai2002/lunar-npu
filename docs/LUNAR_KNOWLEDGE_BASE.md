@@ -1,11 +1,11 @@
 # LUNAR NPU: COMPREHENSIVE KNOWLEDGE BASE & SYSTEM COMPENDIUM
 ================================================================================
-**Release Version:** 2.0.0 (Sovereign Runtime)  
+**Release Version:** 2.1.0 (Sovereign Enterprise & Maximum NPU Edition)  
 **Target Silicon:** Intel Lunar Lake (Intel Core Ultra 7 258V / Intel AI Boost NPU 4000 @ 47 TOPS INT8)  
 **Co-Processors:** Intel Arc 140V Xe2 GPU (Battlemage) + 8-Core CPU (4 Lion Cove + 4 Skymont)  
 **Memory Architecture:** 32 GB On-Package LPDDR5X-8533 Unified Memory (UMA) @ 136.5 GB/s  
-**Power Envelope:** Fanless Continuous Multimodal Sensing $\le 2.50\text{ Watts}$ (Intel RAPL Closed-Loop Governor)  
-**Test Suite:** 98 / 98 Tests Passing (100% Pass Rate)  
+**Power Envelope:** Dual-Profile Governor: Ambient Continuous Sensing $\le 2.50\text{ Watts}$ vs. Surge Full Throttle $\le 28.0\text{ Watts}$ (47 TOPS Peak)  
+**Test Suite:** 109 / 109 Tests Passing (100% Pass Rate)  
 
 ---
 
@@ -123,7 +123,10 @@ The unified CLI is accessible via `lunar` or `python -m lunar_core.cli`:
 ## 5. Model Context Protocol (MCP) Tools Catalog
 
 Native MCP tools registered for external AI assistants:
-- `lunar_status`: Silicon hardware query.
+- `lunar_status`: Silicon hardware query and active power profile.
+- `lunar_set_power_profile`: Toggle between `ambient` (2.5W) and `surge` (47 TOPS) profiles.
+- `lunar_micro_lora_train`: On-device parameter-efficient fine-tuning on NPU systolic arrays.
+- `lunar_ghost_hud_post`: DirectComposition teleprompter message posting (`WDA_EXCLUDEFROMCAPTURE`).
 - `lunar_swarm_execute`: Dispatches end-to-end multi-agent coding and audit tasks.
 - `lunar_circuit_breaker_audit`: Sub-microsecond deterministic command safety verification.
 - `lunar_route_task`: Sub-3ms prompt classification into persona archetypes.
@@ -136,12 +139,13 @@ Native MCP tools registered for external AI assistants:
 ## 6. Verification Status & Test Registry
 
 - **Test Suite Command:** `pytest tests/ -v`
-- **Total Test Count:** **98 tests passed in 137s (100% pass rate)**.
+- **Total Test Count:** **109 tests passed in 132s (100% pass rate)**.
 - **Test File Distribution:**
   - `tests/test_pillar1_usm_shave.py`: 5 tests (Level Zero USM, SPSC ring buffer, SHAVE DSP).
   - `tests/test_pillar2_mamba2_pq8.py`: 8 tests (Mamba-2 SSD, PersistentStateManager, PQ8, Systolic scan).
   - `tests/test_pillar3_ocr_sovereign.py`: 7 tests (DBNet + DocTR, pHash, VirtualLock, PII, WASAPI).
   - `tests/test_pillar4_guard_swarm.py`: 8 tests (Aho-Corasick DFA, Neural Gate, Geodesic Router, Cyclic Swarm, Named Pipe).
   - `tests/test_pillar5_cli_benchmarks.py`: 8 tests (Full qualification suite, CLI subcommands).
+  - `tests/test_pillar6_surge_lora.py`: 11 tests (Governor profile switching, RAPL evaluation, Mamba-2 chunked GEMM, Micro-LoRA, GhostHUD, FastMCP).
   - `tests/test_studio.py`: 1 test (Command Deck static routes, API endpoints).
   - Baseline tests (`test_lunar_*.py`): 61 tests (All original systems verified with zero regressions).

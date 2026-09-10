@@ -56,6 +56,7 @@ frontend/
 agency_hub/
 img2threejs/
 graphify_memory/
+.graphify/
 antigravity-perpetual/
 CLI-Anything/
 xlflow/

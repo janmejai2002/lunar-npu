@@ -28,12 +28,15 @@ from lunar_core.vector_memory import LunarVectorMemory
 from lunar_core.speculative import LunarSpeculativePipeline
 from lunar_core.circuit_breaker import SiliconCircuitBreaker, DualStageSiliconCircuitBreaker
 from lunar_core.router import MicroRouter, GeodesicMicroRouter
-from lunar_core.power_telemetry import get_power_telemetry, LunarPowerTelemetry
+from lunar_core.power_telemetry import get_power_telemetry, LunarPowerTelemetry, get_power_governor
 from lunar_core.stress import run_npu_stress_test, get_stress_engine
 from lunar_core.swarm import LunarSwarm, CyclicLunarSwarm
 from lunar_core.vision import LunarVisionEngine
 from lunar_core.audio import LunarAudioEngine
 from lunar_core.git_time_machine import GitTimeMachine
+from lunar_core.micro_lora import MicroLoRAEngine
+from lunar_core.ghost_hud import get_ghost_hud
+from lunar_core.install_mcp import inspect_client_status, install_lunar_mcp
 
 
 HTML_PAGE = """<!DOCTYPE html>
@@ -445,6 +448,21 @@ class LunarStudioHandler(BaseHTTPRequestHandler):
             self.send_json([r.to_dict() for r in res])
             return
 
+        if path == "/api/governor/profile":
+            gov = get_power_governor()
+            status = gov.evaluate(current_profile=getattr(self.engine, "current_profile", "surge"))
+            self.send_json(status)
+            return
+
+        if path == "/api/hud/status":
+            hud = get_ghost_hud()
+            self.send_json(hud.get_status())
+            return
+
+        if path == "/api/mcp/clients":
+            self.send_json(inspect_client_status())
+            return
+
         self.send_error(404, "Endpoint not found")
 
     def read_json_body(self) -> Dict[str, Any]:
@@ -565,6 +583,49 @@ class LunarStudioHandler(BaseHTTPRequestHandler):
             top_k = int(data.get("top_k", 5))
             res = self.get_git().search(q, top_k=top_k)
             self.send_json([r.to_dict() for r in res])
+            return
+
+        if path == "/api/governor/profile":
+            prof = data.get("profile", "surge")
+            res = self.engine.set_profile(prof)
+            gov = get_power_governor()
+            gov_status = gov.evaluate(current_profile=self.engine.current_profile)
+            res.update(gov_status)
+            self.send_json(res)
+            return
+
+        if path == "/api/lora/train":
+            steps = int(data.get("steps", 20))
+            rank = int(data.get("rank", 8))
+            lora = MicroLoRAEngine(rank=rank, engine=self.engine)
+            res = lora.benchmark_adaptation(steps=steps)
+            self.send_json(res)
+            return
+
+        if path == "/api/hud/toggle":
+            hud = get_ghost_hud()
+            active = bool(data.get("active", not hud.is_running))
+            if active:
+                res = hud.start()
+            else:
+                res = hud.stop()
+            self.send_json(res)
+            return
+
+        if path == "/api/hud/message":
+            hud = get_ghost_hud()
+            text = data.get("text", "")
+            role = data.get("role", "assistant")
+            urgency = data.get("urgency", "nominal")
+            res = hud.post_message(text=text, role=role, urgency=urgency)
+            self.send_json(res)
+            return
+
+        if path == "/api/mcp/install":
+            client = data.get("client", "all")
+            dry_run = bool(data.get("dry_run", False))
+            res = install_lunar_mcp(client_target=client, dry_run=dry_run)
+            self.send_json(res)
             return
 
         self.send_error(404, "Endpoint not found")

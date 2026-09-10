@@ -1356,3 +1356,133 @@ body {
 .accent-water { color: var(--water) !important; }
 .accent-amber { color: var(--amber) !important; }
 .accent-plum { color: var(--plum) !important; }
+
+/* Dynamic NPU Governor Switcher */
+.governor-switcher {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 3px 5px;
+  border-radius: 20px;
+  border: 1px solid var(--border-subtle);
+}
+
+.prof-pill {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.prof-pill:hover {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.prof-pill.active {
+  background: var(--water-subtle);
+  color: var(--water);
+  border-color: rgba(56, 189, 248, 0.4);
+}
+
+#btn-prof-surge.active {
+  background: rgba(168, 85, 247, 0.15);
+  color: #c084fc;
+  border-color: rgba(168, 85, 247, 0.45);
+}
+
+.p-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.pulse-surge {
+  box-shadow: 0 0 8px #c084fc;
+  animation: pulse-glow 1.5s infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.3); }
+}
+
+/* Micro-LoRA Card Styles */
+.card-lora {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lora-controls-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.lora-inputs-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sel-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lora-metrics-box {
+  background: var(--card-inner);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.72rem;
+  font-family: var(--font-mono);
+}
+
+.lora-stat-row {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-muted);
+}
+
+/* GhostHUD Card Styles */
+.card-ghosthud {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ghosthud-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hud-btn-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hud-post-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+

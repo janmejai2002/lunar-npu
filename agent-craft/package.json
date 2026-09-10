@@ -1,6 +1,6 @@
 {
   "name": "agent-craft",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "The Anti-Slop Visual Craft Linter, Perceptual Contrast Engine & MCP Server for AI Coding Agents",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -12,10 +12,10 @@
     "build": "tsc",
     "watch": "tsc --watch",
     "start": "node ./bin/agent-craft.js",
-    "test": "node --import tsx --test tests/contrast.test.ts tests/detector.test.ts tests/fixer.test.ts tests/mcp.test.ts",
+    "test": "node --import tsx --test tests/contrast.test.ts tests/detector.test.ts tests/fixer.test.ts tests/mcp.test.ts tests/cascade.test.ts",
     "test:bun": "bun test",
     "lint": "node ./bin/agent-craft.js audit src/",
-    "prepublishOnly": "tsc && node --import tsx --test tests/contrast.test.ts tests/detector.test.ts tests/fixer.test.ts tests/mcp.test.ts"
+    "prepublishOnly": "tsc && node --import tsx --test tests/contrast.test.ts tests/detector.test.ts tests/fixer.test.ts tests/mcp.test.ts tests/cascade.test.ts"
   },
   "files": [
     "dist",

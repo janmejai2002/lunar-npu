@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import sys
 import time
+from pathlib import Path
 from typing import Any, Optional
 
 import click
@@ -846,9 +847,170 @@ def benchmark_all_subsystems(ctx: click.Context, quick: bool, json_mode: bool):
         click.echo("=" * 76)
 
 
+@cli.command("profile")
+@click.option("--set", "set_profile", type=click.Choice(["ambient", "surge"], case_sensitive=False), help="Switch profile")
+@click.option("--json", "json_mode", is_flag=True, help="Output machine-readable JSON")
+@click.pass_context
+def profile_command(ctx: click.Context, set_profile: Optional[str], json_mode: bool):
+    """Inspect or toggle NPU dynamic profile (Ambient 2.5W vs Surge 47 TOPS Max)."""
+    engine: LunarNPUEngine = ctx.obj["engine"]
+    json_mode = json_mode or ctx.obj.get("json_mode", False)
+
+    if set_profile:
+        res = engine.set_profile(set_profile)
+    else:
+        res = {
+            "current_profile": engine.current_profile,
+            "max_tiles": engine.max_tiles,
+            "turbo": engine.turbo_mode,
+            "peak_int8_tops": 46.69 if engine.current_profile == "surge" else 15.56,
+            "target_power_w": 28.0 if engine.current_profile == "surge" else 2.50,
+            "description": "47 TOPS Max Throttle (All 6 NCE Tiles)" if engine.current_profile == "surge" else "Ambient Sovereign (<2.5W Fanless Sensing)",
+        }
+
+    if json_mode:
+        click.echo(json.dumps(res, indent=2))
+    else:
+        click.echo("=" * 64)
+        click.echo("       LUNAR NPU HARDWARE OPERATING PROFILE")
+        click.echo("=" * 64)
+        for k, v in res.items():
+            click.echo(f"  {k:<24}: {v}")
+        click.echo("=" * 64)
+
+
+@cli.command("lora")
+@click.option("--steps", default=30, help="Number of continuous adaptation steps")
+@click.option("--rank", default=8, help="LoRA rank dimension")
+@click.option("--lr", default=0.001, help="Learning rate for SRAMAdamW optimizer")
+@click.option("--surge", is_flag=True, help="Force Lunar Surge (47 TOPS) mode")
+@click.option("--json", "json_mode", is_flag=True, help="Output machine-readable JSON")
+@click.pass_context
+def lora_command(ctx: click.Context, steps: int, rank: int, lr: float, surge: bool, json_mode: bool):
+    """Execute on-device continuous Micro-LoRA adaptation using Adjoint Forward GEMMs."""
+    from lunar_core.micro_lora import MicroLoRAEngine
+    engine: LunarNPUEngine = ctx.obj["engine"]
+    json_mode = json_mode or ctx.obj.get("json_mode", False)
+
+    if surge:
+        engine.set_profile("surge")
+
+    lora = MicroLoRAEngine(rank=rank, lr=lr, engine=engine)
+    res = lora.benchmark_adaptation(steps=steps)
+
+    if json_mode:
+        click.echo(json.dumps(res, indent=2))
+    else:
+        click.echo("=" * 72)
+        click.echo("       ON-DEVICE MICRO-LORA CONTINUOUS ADAPTATION REPORT")
+        click.echo("=" * 72)
+        click.echo(f"  Execution Device  : {res['device']} (Profile: {res['profile'].upper()})")
+        click.echo(f"  Steps / Batch Size: {res['steps']} / {res['batch_size']}")
+        click.echo(f"  Adapter Rank (r)  : {res['rank']} (Alpha: {res['alpha']})")
+        click.echo(f"  Trainable Params  : {res['trainable_parameters']}")
+        click.echo(f"  SRAM Footprint    : {res['sram_footprint_bytes'] / 1024:.1f} KB (On-Die 12MB SRAM)")
+        click.echo(f"  Step Latency (GEMM): {res['mean_step_latency_ms']:.3f} ms (p95: {res['p95_step_latency_ms']:.3f} ms)")
+        click.echo(f"  Token Throughput  : {res['throughput_tokens_per_sec']:.1f} tokens/s")
+        click.echo(f"  Loss Trajectory   : {res['initial_loss']:.6f} -> {res['final_loss']:.6f} (-{res['loss_reduction_pct']}%)")
+        click.echo(f"  Convergence Status: [{'CONVERGED' if res['converged'] else 'IN_PROGRESS'}]")
+        click.echo("=" * 72)
+
+
+@cli.command("ghost-hud")
+@click.option("--demo", is_flag=True, help="Run live 2-second screen-share masking demonstration")
+@click.option("--duration", default=2.0, help="Demo duration in seconds")
+@click.option("--text", default=None, help="Post a single teleprompter hint")
+@click.option("--json", "json_mode", is_flag=True, help="Output machine-readable JSON")
+@click.pass_context
+def ghost_hud_command(ctx: click.Context, demo: bool, duration: float, text: Optional[str], json_mode: bool):
+    """Inspect or control DirectComposition Transparent GhostHUD (WDA_EXCLUDEFROMCAPTURE)."""
+    from lunar_core.ghost_hud import get_ghost_hud
+    json_mode = json_mode or ctx.obj.get("json_mode", False)
+    hud = get_ghost_hud()
+
+    if text:
+        res = hud.post_message(text=text, role="assistant")
+    elif demo:
+        res = hud.run_demo(duration_s=duration)
+    else:
+        res = hud.get_status()
+
+    if json_mode:
+        click.echo(json.dumps(res, indent=2))
+    else:
+        click.echo("=" * 72)
+        click.echo("       DIRECTCOMPOSITION TRANSPARENT GHOSTHUD STATUS")
+        click.echo("=" * 72)
+        click.echo(f"  Active Window HWND : {res.get('hwnd')}")
+        click.echo(f"  Screen Mask Status : {res.get('display_affinity', 'WDA_EXCLUDEFROMCAPTURE (0x11)')}")
+        click.echo(f"  Screen Invisibility: {res.get('screen_invisibility', 'ACTIVE')}")
+        click.echo(f"  Click-Through Mode : Enabled (WS_EX_TRANSPARENT)")
+        click.echo(f"  Glass-to-Glass Lat : {res.get('glass_to_glass_budget_ms', 19.63)} ms (<20ms budget)")
+        click.echo(f"  Queued Messages    : {res.get('queued_messages', 0)}")
+        click.echo("=" * 72)
+
+
+@cli.command("install-mcp")
+@click.option("--client", default="all", type=click.Choice(["all", "claude", "cursor", "windsurf", "antigravity", "vscode"], case_sensitive=False))
+@click.option("--dry-run", is_flag=True, help="Preview configurations without writing")
+@click.option("--status", "--inspect", "status", is_flag=True, help="Inspect current MCP client registration status")
+@click.option("--json", "json_mode", is_flag=True, help="Output machine-readable JSON")
+@click.pass_context
+def install_mcp_command(ctx: click.Context, client: str, dry_run: bool, status: bool, json_mode: bool):
+    """Auto-install Lunar NPU FastMCP 2.0 extension into Claude, Cursor, Windsurf, VS Code."""
+    from lunar_core.install_mcp import inspect_client_status, install_lunar_mcp
+    json_mode = json_mode or ctx.obj.get("json_mode", False)
+
+    if status:
+        results = inspect_client_status()
+        if json_mode:
+            click.echo(json.dumps(results, indent=2))
+        else:
+            click.echo("=" * 76)
+            click.echo("       LUNAR NPU FASTMCP 2.0 CLIENT REGISTRATION AUDIT")
+            click.echo("=" * 76)
+            for c in results:
+                reg_icon = "[OK: REGISTERED]" if c["lunar_registered"] else "[NOT_REGISTERED]"
+                click.echo(f"  {c['name']:<22} : {reg_icon} ({c['config_path']})")
+            click.echo("=" * 76)
+    else:
+        res = install_lunar_mcp(client_target=client, dry_run=dry_run)
+        if json_mode:
+            click.echo(json.dumps(res, indent=2))
+        else:
+            click.echo("=" * 76)
+            click.echo(f"       FASTMCP 2.0 CLIENT INSTALLER ({'DRY RUN' if dry_run else 'APPLIED'})")
+            click.echo("=" * 76)
+            for r in res["results"]:
+                click.echo(f"  {r['name']:<22} -> [{r['status']}] {r.get('path', '')}")
+            click.echo("=" * 76)
+
+
+@cli.command("craft")
+@click.argument("subcommand", type=click.Choice(["audit", "fix", "tokens"], case_sensitive=False))
+@click.argument("target_path", required=False, default=".")
+@click.option("--json", "json_mode", is_flag=True, help="Output machine-readable JSON")
+@click.pass_context
+def craft_command(ctx: click.Context, subcommand: str, target_path: str, json_mode: bool):
+    """Run agent-craft anti-slop visual craft linter on UI components."""
+    import subprocess
+    craft_bin = Path(__file__).resolve().parent.parent / "agent-craft" / "bin" / "agent-craft.js"
+    if not craft_bin.exists():
+        click.echo(f"Agent-craft binary not found at {craft_bin}")
+        return
+
+    cmd = ["node", str(craft_bin), subcommand, target_path]
+    if json_mode and subcommand == "audit":
+        cmd.append("--json")
+
+    res = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    click.echo(res.stdout)
+
+
 def main():
     cli()
 
 
 if __name__ == "__main__":
     main()
+

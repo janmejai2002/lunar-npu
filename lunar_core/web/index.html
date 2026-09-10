@@ -52,6 +52,16 @@
         <span class="pill-label">UMA RESTORE</span>
         <span class="pill-val accent-water">&lt;15μs</span>
       </div>
+
+      <!-- Dynamic NPU Profile Switcher (Ambient 2.5W vs Surge 47 TOPS) -->
+      <div class="governor-switcher" title="Toggle between Ambient (2.5W Fanless) and Lunar Surge (47 TOPS Max)">
+        <button id="btn-prof-ambient" class="prof-pill" onclick="switchProfile('ambient')">
+          <span class="p-dot"></span> AMBIENT (2.5W)
+        </button>
+        <button id="btn-prof-surge" class="prof-pill active" onclick="switchProfile('surge')">
+          <span class="p-dot pulse-surge"></span> SURGE (47 TOPS)
+        </button>
+      </div>
     </div>
 
     <div class="strip-right">
@@ -201,6 +211,60 @@
             </div>
             <div class="route-res-detail" id="route-res-detail">
               Geodesic arc: <strong id="route-arc-rad">0.342 rad</strong> • Latency: <strong id="route-lat-val">2.15 ms</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. On-Device Micro-LoRA Continuous Adaptation Card -->
+      <div class="card card-lora">
+        <div class="card-header">
+          <div class="card-title-wrap">
+            <svg class="card-icon accent-plum" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 20h9"/>
+              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+            </svg>
+            <h2 class="card-title">On-Device Micro-LoRA</h2>
+          </div>
+          <span class="badge badge-plum" id="lora-status-badge">SRAM GEMM</span>
+        </div>
+
+        <div class="card-subhead">
+          <span>Continuous Backpropagation via Adjoint Forward Graph</span>
+          <span class="subhead-pill accent-plum" id="lora-sram-pill">12MB SRAM Resident</span>
+        </div>
+
+        <div class="lora-controls-wrap">
+          <div class="lora-inputs-row">
+            <div class="sel-group">
+              <span class="sel-label">Steps:</span>
+              <select id="lora-steps-sel" class="preset-dropdown">
+                <option value="15">15 steps</option>
+                <option value="30" selected>30 steps</option>
+                <option value="50">50 steps</option>
+              </select>
+            </div>
+            <div class="sel-group">
+              <span class="sel-label">Rank (r):</span>
+              <select id="lora-rank-sel" class="preset-dropdown">
+                <option value="4">r=4</option>
+                <option value="8" selected>r=8</option>
+                <option value="16">r=16</option>
+              </select>
+            </div>
+            <button id="btn-train-lora" class="btn btn-secondary btn-small" onclick="trainMicroLoRA()">
+              <span>Train Adapter</span>
+            </button>
+          </div>
+
+          <div class="lora-metrics-box" id="lora-metrics-box">
+            <div class="lora-stat-row">
+              <span>Throughput: <strong id="lora-throughput" class="accent-moss">28,400 tok/s</strong></span>
+              <span>Latency: <strong id="lora-latency">0.14 ms/step</strong></span>
+            </div>
+            <div class="lora-stat-row">
+              <span>Loss Delta: <strong id="lora-loss-delta" class="accent-moss">0.651 → 0.639 (-1.7%)</strong></span>
+              <span>Params: <strong id="lora-param-count">4,096</strong></span>
             </div>
           </div>
         </div>
@@ -539,6 +603,43 @@ class SPSCRingBuffer:
           <div class="teleprompter-text-box" id="teleprompter-text-box">
             <p class="transcript-line"><span class="t-stamp">21:07:12</span> Intel Lunar Lake microarchitecture features 6 NCE physical tiles delivering 47 TOPS INT8 at 2.5W package power.</p>
             <p class="transcript-line"><span class="t-stamp">21:07:28</span> Dual-Stage silicon circuit breakers enforce sub-2 microsecond deterministic kernel guardrails via Aho-Corasick DFA.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. DirectComposition Transparent GhostHUD Widget -->
+      <div class="card card-ghosthud">
+        <div class="card-header">
+          <div class="card-title-wrap">
+            <svg class="card-icon accent-water" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+            <h2 class="card-title">DirectComposition GhostHUD</h2>
+          </div>
+          <span class="badge badge-water" id="hud-affinity-badge">WDA_EXCLUDEFROMCAPTURE</span>
+        </div>
+
+        <div class="card-subhead">
+          <span>Private Hardware Masking (Invisible to Zoom, Teams, Meet)</span>
+          <span class="subhead-pill accent-water" id="hud-state-pill">Click-Through</span>
+        </div>
+
+        <div class="ghosthud-controls">
+          <div class="hud-btn-row">
+            <button id="btn-toggle-hud" class="btn btn-secondary btn-small" onclick="toggleGhostHUD()">
+              <span id="hud-toggle-label">Start Overlay</span>
+            </button>
+            <button id="btn-demo-hud" class="btn btn-secondary btn-small" onclick="testGhostHUDDemo()">
+              <span>Run Mask Demo</span>
+            </button>
+          </div>
+
+          <div class="hud-post-row">
+            <input type="text" id="hud-quick-input" class="mission-textarea" style="height:34px;padding:6px 10px;font-size:11px;" placeholder="Post private teleprompter note...">
+            <button class="btn btn-primary btn-small" onclick="postHUDNote()">
+              <span>Post</span>
+            </button>
           </div>
         </div>
       </div>

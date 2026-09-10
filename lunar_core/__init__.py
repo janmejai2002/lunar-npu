@@ -28,5 +28,8 @@ __all__ = [
     'TranscriptionResult',
     'GitTimeMachine',
     'CommitSearchResult',
+    '__version__',
 ]
+
+__version__ = '2.1.0'
 

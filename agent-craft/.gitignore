@@ -1,4 +1,4 @@
-﻿# Dependencies
+# Dependencies
 node_modules/
 .pnpm-store/
 
@@ -13,6 +13,7 @@ coverage/
 # Reports and generated audits
 report.html
 craft-report.html
+.graphify/
 
 # Logs
 *.log

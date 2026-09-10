@@ -177,6 +177,62 @@ TOOLS_DEFINITIONS = [
             "additionalProperties": False,
         },
     },
+    {
+        "name": "lunar_set_power_profile",
+        "description": "Switch Intel Lunar Lake NPU operational profile between 'ambient' (2 tiles, <=2.5W fanless) and 'surge' (all 6 tiles, 47 TOPS INT8 max).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "profile": {
+                    "type": "string",
+                    "description": "Target profile: 'ambient' or 'surge'",
+                    "enum": ["ambient", "surge"],
+                },
+            },
+            "required": ["profile"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "lunar_micro_lora_train",
+        "description": "Execute on-device continuous Micro-LoRA adaptation steps using Adjoint Forward Graph GEMMs on NPU systolic arrays.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "steps": {
+                    "type": "integer",
+                    "description": "Number of training steps to run (default 25)",
+                    "default": 25,
+                },
+                "rank": {
+                    "type": "integer",
+                    "description": "LoRA rank dimension (default 8)",
+                    "default": 8,
+                },
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "lunar_ghost_hud_post",
+        "description": "Post a real-time message or hint to the transparent DirectComposition GhostHUD (hardware screen-share masked via WDA_EXCLUDEFROMCAPTURE).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "text": {
+                    "type": "string",
+                    "description": "Message text to display on private HUD.",
+                },
+                "role": {
+                    "type": "string",
+                    "description": "Message role (assistant, system, or warning)",
+                    "default": "assistant",
+                },
+            },
+            "required": ["text"],
+            "additionalProperties": False,
+        },
+    },
 ]
 
 
@@ -334,6 +390,27 @@ class LunarMCPServer:
             lang = args.get("language", "en")
             res = self._audio.transcribe(audio_source=audio_path, language=lang)
             return json.dumps(res.to_dict(), indent=2)
+
+        elif name == "lunar_set_power_profile":
+            prof = args.get("profile", "surge")
+            res = self.engine.set_profile(prof)
+            return json.dumps(res, indent=2)
+
+        elif name == "lunar_micro_lora_train":
+            from lunar_core.micro_lora import MicroLoRAEngine
+            steps = int(args.get("steps", 25))
+            rank = int(args.get("rank", 8))
+            lora = MicroLoRAEngine(rank=rank, engine=self.engine)
+            res = lora.benchmark_adaptation(steps=steps)
+            return json.dumps(res, indent=2)
+
+        elif name == "lunar_ghost_hud_post":
+            from lunar_core.ghost_hud import get_ghost_hud
+            text = args["text"]
+            role = args.get("role", "assistant")
+            hud = get_ghost_hud()
+            res = hud.post_message(text=text, role=role)
+            return json.dumps(res, indent=2)
 
         else:
             raise ValueError(f"Unknown tool: {name}")
