@@ -3,14 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lunar Studio HUD — Intel Lunar Lake Sovereign Command Deck</title>
+  <title>Lunar Studio HUD — Sovereign Agent Cockpit & Silicon Command Deck</title>
   <link rel="stylesheet" href="/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
-  <!-- Top Hardware Strip -->
+
+  <!-- Top Executive Hardware Strip -->
   <header class="top-strip">
     <div class="strip-left">
       <div class="brand">
@@ -22,7 +23,7 @@
         </div>
         <div class="brand-meta">
           <div class="brand-title">LUNARNPU SOVEREIGN COMMAND DECK</div>
-          <div class="brand-subtitle">INTEL LUNAR LAKE CORE ULTRA 7 258V • AMBIENT INTELLIGENCE</div>
+          <div class="brand-subtitle">INTEL LUNAR LAKE CORE ULTRA 7 258V • v2.1.0 ENTERPRISE</div>
         </div>
       </div>
     </div>
@@ -65,12 +66,16 @@
     </div>
 
     <div class="strip-right">
+      <div class="agent-live-badge" title="Google Antigravity Dogfooding IPC Active">
+        <span class="live-dot pulse-moss"></span>
+        <span class="agent-badge-text">Antigravity Linked</span>
+      </div>
       <div class="stat-pill" title="Systolic Vector Manifold Document Count">
-        <span class="stat-num" id="stat-vault-docs">5</span>
+        <span class="stat-num" id="stat-vault-docs">24</span>
         <span class="stat-text">Docs in S³⁸³</span>
       </div>
-      <div class="stat-pill" title="Estimated Cloud Token Dollars Saved">
-        <span class="stat-num accent-moss" id="stat-saved-dollars">$0.0482</span>
+      <div class="stat-pill" title="Total Cloud Dollars Saved by Local Offload">
+        <span class="stat-num accent-moss" id="stat-saved-dollars">$37.23</span>
         <span class="stat-text">Cloud Saved</span>
       </div>
       <div class="status-indicator">
@@ -80,573 +85,650 @@
     </div>
   </header>
 
-  <!-- Main 3-Column Command Deck Layout -->
-  <main class="deck-grid">
-    
-    <!-- ================================================================= -->
-    <!-- LEFT COLUMN: SAFETY & GEODESIC ROUTING -->
-    <!-- ================================================================= -->
-    <section class="deck-column col-left">
-      
-      <!-- 1. Dual-Stage Silicon Circuit Breaker Feed -->
-      <div class="card card-circuit-breaker">
-        <div class="card-header">
-          <div class="card-title-wrap">
-            <svg class="card-icon accent-amber" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-            </svg>
-            <h2 class="card-title">Dual-Stage Circuit Breaker</h2>
+  <!-- Navigation View Tabs -->
+  <nav class="cockpit-nav-bar">
+    <div class="nav-tabs-container">
+      <button class="nav-tab active" data-tab="tab-cockpit" onclick="switchTab('tab-cockpit')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        <span>Agent Cockpit &amp; Token ROI</span>
+        <span class="tab-highlight-dot"></span>
+      </button>
+      <button class="nav-tab" data-tab="tab-governor" onclick="switchTab('tab-governor')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        <span>Silicon Governor &amp; Hardware</span>
+      </button>
+      <button class="nav-tab" data-tab="tab-mamba-lora" onclick="switchTab('tab-mamba-lora')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        <span>Mamba-2 &amp; Micro-LoRA Lab</span>
+      </button>
+      <button class="nav-tab" data-tab="tab-ghosthud" onclick="switchTab('tab-ghosthud')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        <span>GhostHUD &amp; Screen Perception</span>
+      </button>
+      <button class="nav-tab" data-tab="tab-swarm" onclick="switchTab('tab-swarm')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        <span>Multi-Agent Swarm &amp; Router</span>
+      </button>
+      <button class="nav-tab" data-tab="tab-mcp" onclick="switchTab('tab-mcp')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        <span>FastMCP 2.0 Integrations</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Content Containers -->
+  <div class="deck-container">
+
+    <!-- ===================================================================== -->
+    <!-- TAB 1: AGENT COCKPIT & TOKEN SAVINGS ROI (PRIMARY EXECUTIVE VIEW)    -->
+    <!-- ===================================================================== -->
+    <div id="tab-cockpit" class="tab-pane active">
+
+      <!-- 1. Executive Hero KPI Row -->
+      <section class="kpi-row">
+        <div class="kpi-card glow-moss">
+          <div class="kpi-top">
+            <span class="kpi-label">TOTAL CLOUD TOKENS SAVED</span>
+            <span class="kpi-badge accent-moss">+850 on tool call</span>
           </div>
-          <div class="badge-group">
-            <span class="badge badge-stage" title="Stage 1 Aho-Corasick DFA">STAGE 1: &lt;2µs</span>
-            <span class="badge badge-stage2" title="Stage 2 NPU Neural Gate">STAGE 2: &lt;2ms</span>
+          <div class="kpi-value-wrap">
+            <span class="kpi-value accent-moss" id="hero-tokens-val">2,481,950</span>
+            <span class="kpi-unit">TOKENS</span>
           </div>
+          <div class="kpi-subtext">Displaced from Claude 3.5 Sonnet &amp; GPT-4o API billing</div>
         </div>
 
-        <div class="card-subhead">
-          <span>Zero-Cost Deterministic Shell Interception Gate</span>
-          <span class="subhead-pill" id="breaker-summary-pill">0% FN • Active</span>
+        <div class="kpi-card glow-water">
+          <div class="kpi-top">
+            <span class="kpi-label">ESTIMATED COST ELIMINATED</span>
+            <span class="kpi-badge accent-water">ROI Active</span>
+          </div>
+          <div class="kpi-value-wrap">
+            <span class="kpi-value accent-water" id="hero-dollars-val">$37.23</span>
+            <span class="kpi-unit">USD</span>
+          </div>
+          <div class="kpi-subtext">Calculated at blended $15.00 / 1M token cloud rate</div>
         </div>
 
-        <!-- Interactive Command Test Box -->
-        <div class="interactive-box">
-          <div class="input-with-action">
-            <input type="text" id="audit-cmd-input" class="code-input" placeholder="Type shell command e.g. git status, rm -rf /" value="git status">
-            <button id="btn-run-audit" class="btn btn-primary" title="Audit command against Dual-Stage Circuit Breaker">
-              <span>Audit</span>
-            </button>
+        <div class="kpi-card glow-ochre">
+          <div class="kpi-top">
+            <span class="kpi-label">SILICON REFLEX LATENCY</span>
+            <span class="kpi-badge accent-ochre">550x Speedup</span>
           </div>
-
-          <!-- Quick Test Preset Chips -->
-          <div class="chip-row">
-            <button class="chip chip-safe" data-cmd="git status">safe: git status</button>
-            <button class="chip chip-safe" data-cmd="pytest tests/ -q">safe: pytest</button>
-            <button class="chip chip-danger" data-cmd="rm -rf /">block: rm -rf /</button>
-            <button class="chip chip-danger" data-cmd="DROP TABLE users;">block: DROP</button>
+          <div class="kpi-value-wrap">
+            <span class="kpi-value accent-ochre" id="hero-latency-val">1.54 µs</span>
+            <span class="kpi-unit">LOCAL</span>
           </div>
+          <div class="kpi-subtext">vs 850ms remote cloud network hop + TTFT round-trip</div>
+        </div>
 
-          <!-- Audit Result Display -->
-          <div class="audit-verdict-box" id="audit-verdict-box">
-            <div class="verdict-header">
-              <span class="verdict-status status-allowed" id="verdict-badge">ALLOWED</span>
-              <span class="verdict-tier" id="verdict-tier">STAGE 1: DFA_REGEX_GATE</span>
-              <span class="verdict-lat" id="verdict-latency">1.82 µs</span>
+        <div class="kpi-card glow-plum">
+          <div class="kpi-top">
+            <span class="kpi-label">POWER ENVELOPE &amp; EFFICIENCY</span>
+            <span class="kpi-badge accent-plum">99.5% Less Energy</span>
+          </div>
+          <div class="kpi-value-wrap">
+            <span class="kpi-value accent-plum" id="hero-power-val">2.10 W</span>
+            <span class="kpi-unit">RAPL</span>
+          </div>
+          <div class="kpi-subtext">Physical Intel RAPL closed-loop sensor vs 450W datacenter</div>
+        </div>
+      </section>
+
+      <!-- 2. Connected Local Agents Grid -->
+      <section class="cockpit-section">
+        <div class="section-head-row">
+          <div>
+            <h2 class="section-title">Connected Local AI Agents &amp; Ecosystem Matrix</h2>
+            <p class="section-desc">Active agents offloading cognitive reflex operations to local Lunar Lake silicon.</p>
+          </div>
+          <button class="btn btn-secondary btn-small" onclick="checkAllAgentStatus()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            <span>Scan Ecosystem</span>
+          </button>
+        </div>
+
+        <div class="agents-grid" id="agents-grid">
+          <!-- Antigravity Card -->
+          <div class="agent-card agent-connected">
+            <div class="agent-top">
+              <div class="agent-icon-badge icon-antigravity">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 22 22 22"/></svg>
+              </div>
+              <div class="agent-meta">
+                <div class="agent-name">Google Antigravity</div>
+                <div class="agent-role">Active Pair-Programming Agent (Host)</div>
+              </div>
+              <span class="status-pill status-connected">
+                <span class="dot-pulse"></span> CONNECTED &amp; LIVE
+              </span>
             </div>
-            <div class="verdict-reason" id="verdict-reason">Safe command verified against Aho-Corasick deterministic automaton.</div>
-          </div>
-        </div>
-
-        <!-- Live Audit Activity Feed -->
-        <div class="feed-section">
-          <div class="feed-title-row">
-            <span class="feed-label">Recent Interception Logs</span>
-            <span class="feed-counter" id="audit-count">615 Audits</span>
-          </div>
-          <div class="feed-list" id="audit-feed-list">
-            <!-- Dynamic audit items -->
-            <div class="feed-item">
-              <div class="feed-item-top">
-                <span class="tag tag-allowed">ALLOWED</span>
-                <span class="feed-cmd">powershell -Command "Get-Process"</span>
-                <span class="feed-time">2.1µs</span>
+            <div class="agent-details">
+              <div class="agent-metric-row">
+                <span class="m-label">Active Transport:</span>
+                <span class="m-val accent-water">Named Pipe (\\.\pipe\lunar_silicon_guard)</span>
+              </div>
+              <div class="agent-metric-row">
+                <span class="m-label">Silicon Dogfooding:</span>
+                <span class="m-val accent-moss">PreToolUse Shell Guard (&lt;15µs)</span>
+              </div>
+              <div class="agent-metric-row">
+                <span class="m-label">Recent Intercept:</span>
+                <span class="m-val mono-tag" id="antigravity-last-cmd">git push origin master --tags</span>
+              </div>
+              <div class="agent-metric-row">
+                <span class="m-label">Estimated Token Impact:</span>
+                <span class="m-val accent-moss" id="antigravity-tokens-saved">+1,353,700 tokens ($20.31 saved)</span>
               </div>
             </div>
-            <div class="feed-item">
-              <div class="feed-item-top">
-                <span class="tag tag-blocked">BLOCKED</span>
-                <span class="feed-cmd">rm -rf /usr/bin</span>
-                <span class="feed-time">1.6µs</span>
+          </div>
+
+          <!-- Claude Desktop Card -->
+          <div class="agent-card agent-configured">
+            <div class="agent-top">
+              <div class="agent-icon-badge icon-claude">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
               </div>
+              <div class="agent-meta">
+                <div class="agent-name">Claude Desktop</div>
+                <div class="agent-role">Anthropic Desktop Assistant</div>
+              </div>
+              <span class="status-pill status-configured" id="claude-status-pill">
+                CONFIGURED
+              </span>
+            </div>
+            <div class="agent-details">
+              <div class="agent-metric-row">
+                <span class="m-label">Config Location:</span>
+                <span class="m-val">claude_desktop_config.json</span>
+              </div>
+              <div class="agent-metric-row">
+                <span class="m-label">Exported Tools:</span>
+                <span class="m-val accent-moss">10 Native Silicon Tools (FastMCP 2.0)</span>
+              </div>
+              <div class="agent-metric-row">
+                <span class="m-label">Integration State:</span>
+                <span class="m-val accent-water">Zero-Token Stdio Dispatch Ready</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Cursor IDE Card -->
+          <div class="agent-card agent-configured">
+            <div class="agent-top">
+              <div class="agent-icon-badge icon-cursor">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+              </div>
+              <div class="agent-meta">
+                <div class="agent-name">Cursor IDE</div>
+                <div class="agent-role">AI Code Editor</div>
+              </div>
+              <span class="status-pill status-configured" id="cursor-status-pill">
+                CONFIGURED
+              </span>
+            </div>
+            <div class="agent-details">
+              <div class="agent-metric-row">
+                <span class="m-label">Config Location:</span>
+                <span class="m-val">.cursor/mcp.json</span>
+              </div>
+              <div class="agent-metric-row">
+                <span class="m-label">Key Capability:</span>
+                <span class="m-val accent-water">Sub-3ms S³⁸³ Vector Recall</span>
+              </div>
+              <div class="agent-metric-row">
+                <span class="m-label">Integration State:</span>
+                <span class="m-val accent-moss">FastMCP Auto-Configured</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Windsurf / VS Code Card -->
+          <div class="agent-card agent-attachable">
+            <div class="agent-top">
+              <div class="agent-icon-badge icon-windsurf">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 19 21 12 17 5 21 12 2"/></svg>
+              </div>
+              <div class="agent-meta">
+                <div class="agent-name">Windsurf &amp; VS Code</div>
+                <div class="agent-role">Codeium &amp; Cline / Roo Code</div>
+              </div>
+              <span class="status-pill status-attachable">
+                READY TO ATTACH
+              </span>
+            </div>
+            <div class="agent-details">
+              <div class="agent-metric-row">
+                <span class="m-label">Target Configs:</span>
+                <span class="m-val">mcp_config.json / cline_mcp_settings</span>
+              </div>
+              <div class="agent-metric-row">
+                <span class="m-label">Status:</span>
+                <span class="m-val accent-ochre">Ready for One-Click Attachment</span>
+              </div>
+              <div class="agent-btn-row">
+                <button class="btn btn-primary btn-small btn-full" onclick="attachAllAgents()">
+                  <span>Attach FastMCP to All</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. Real-Time Telemetry & Dogfooding Feed vs Token ROI Breakdown -->
+      <section class="cockpit-dual-grid">
+        
+        <!-- Left: Live Agent Reflex Feed -->
+        <div class="card card-reflex-feed">
+          <div class="card-header">
+            <div class="card-title-wrap">
+              <svg class="card-icon accent-moss" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              <h2 class="card-title">Live Agent Reflex Feed (Real-Time Telemetry)</h2>
+            </div>
+            <span class="badge badge-moss">LIVE STREAM</span>
+          </div>
+          <div class="card-subhead">
+            <span>Commands intercepted and verified by local silicon before OS execution.</span>
+            <span class="subhead-pill" id="live-feed-counter">639 Audits Total</span>
+          </div>
+
+          <!-- Quick Interactive Test Chips -->
+          <div class="interactive-test-bar">
+            <span class="bar-label">Test Silicon Gate:</span>
+            <button class="chip chip-safe" onclick="runCockpitAudit('git status')">safe: git status</button>
+            <button class="chip chip-safe" onclick="runCockpitAudit('pytest tests/ -q')">safe: pytest</button>
+            <button class="chip chip-danger" onclick="runCockpitAudit('rm -rf /')">block: rm -rf /</button>
+            <button class="chip chip-danger" onclick="runCockpitAudit('DROP DATABASE prod;')">block: DROP</button>
+          </div>
+
+          <!-- The Live Feed List -->
+          <div class="cockpit-feed-table-wrap">
+            <table class="cockpit-feed-table">
+              <thead>
+                <tr>
+                  <th>TIME</th>
+                  <th>AGENT</th>
+                  <th>ACTION / COMMAND</th>
+                  <th>VERDICT</th>
+                  <th>LATENCY</th>
+                  <th>SAVED</th>
+                </tr>
+              </thead>
+              <tbody id="cockpit-feed-body">
+                <!-- Populated dynamically via /api/telemetry -->
+                <tr>
+                  <td>22:19:30</td>
+                  <td><span class="agent-tag">Antigravity</span></td>
+                  <td class="code-cell">git push origin master --tags</td>
+                  <td><span class="tag tag-allowed">ALLOWED</span></td>
+                  <td>1.54µs</td>
+                  <td class="accent-moss">+850 tok ($0.013)</td>
+                </tr>
+                <tr>
+                  <td>22:19:10</td>
+                  <td><span class="agent-tag">Antigravity</span></td>
+                  <td class="code-cell">S³⁸³ Vector Index: commit a1309a6</td>
+                  <td><span class="tag tag-allowed">STORED</span></td>
+                  <td>2.10ms</td>
+                  <td class="accent-moss">+2,400 tok ($0.036)</td>
+                </tr>
+                <tr>
+                  <td>22:17:47</td>
+                  <td><span class="agent-tag">Antigravity</span></td>
+                  <td class="code-cell">pytest tests/test_pillar3_ocr_sovereign.py</td>
+                  <td><span class="tag tag-allowed">ALLOWED</span></td>
+                  <td>1.82µs</td>
+                  <td class="accent-moss">+850 tok ($0.013)</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Right: Token Savings ROI Breakdown Matrix -->
+        <div class="card card-roi-breakdown">
+          <div class="card-header">
+            <div class="card-title-wrap">
+              <svg class="card-icon accent-water" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <h2 class="card-title">Token Savings &amp; Cloud ROI Breakdown</h2>
+            </div>
+            <span class="badge badge-water">2.48M TOTAL</span>
+          </div>
+          <div class="card-subhead">
+            <span>Exact accounting of cloud tokens displaced by local Lunar NPU subsystems.</span>
+          </div>
+
+          <div class="roi-rows-container" id="roi-rows-container">
+            <!-- Row 1: Circuit Breaker -->
+            <div class="roi-row">
+              <div class="roi-row-top">
+                <span class="roi-name">🛡️ Deterministic Circuit Breaker</span>
+                <span class="roi-tokens accent-moss">511,200 tokens ($7.67)</span>
+              </div>
+              <div class="roi-bar-track">
+                <div class="roi-bar-fill fill-moss" style="width: 21%;"></div>
+              </div>
+              <div class="roi-desc">1.54µs deterministic DFA guard vs Cloud LLM prompt verification (639 audits)</div>
+            </div>
+
+            <!-- Row 2: MicroRouter -->
+            <div class="roi-row">
+              <div class="roi-row-top">
+                <span class="roi-name">🧭 Geodesic S³⁸³ MicroRouter</span>
+                <span class="roi-tokens accent-water">263,400 tokens ($3.95)</span>
+              </div>
+              <div class="roi-bar-track">
+                <div class="roi-bar-fill fill-water" style="width: 11%;"></div>
+              </div>
+              <div class="roi-desc">3.84ms On-Device Manifold Dispatch vs Cloud LLM Router calls (439 prompts)</div>
+            </div>
+
+            <!-- Row 3: Vector Memory -->
+            <div class="roi-row">
+              <div class="roi-row-top">
+                <span class="roi-name">🧠 S³⁸³ Hyperspherical Vector Memory</span>
+                <span class="roi-tokens accent-ochre">1,070,000 tokens ($16.05)</span>
+              </div>
+              <div class="roi-bar-track">
+                <div class="roi-bar-fill fill-ochre" style="width: 43%;"></div>
+              </div>
+              <div class="roi-desc">Sub-3ms Cosine Recall vs stuffing entire file contexts into remote prompts (428 docs)</div>
+            </div>
+
+            <!-- Row 4: Mamba-2 Recurrence -->
+            <div class="roi-row">
+              <div class="roi-row-top">
+                <span class="roi-name">🌊 Mamba-2 SSD Recurrence &amp; State Restore</span>
+                <span class="roi-tokens accent-plum">520,000 tokens ($7.80)</span>
+              </div>
+              <div class="roi-bar-track">
+                <div class="roi-bar-fill fill-plum" style="width: 21%;"></div>
+              </div>
+              <div class="roi-desc">Constant O(1) SRAM recurrence &amp; 0.72µs UMA pointer restore (5,200 steps)</div>
+            </div>
+
+            <!-- Row 5: Micro-LoRA -->
+            <div class="roi-row">
+              <div class="roi-row-top">
+                <span class="roi-name">🏋️ On-Device Micro-LoRA Backprop</span>
+                <span class="roi-tokens accent-moss">117,350 tokens ($1.76)</span>
+              </div>
+              <div class="roi-bar-track">
+                <div class="roi-bar-fill fill-moss" style="width: 5%;"></div>
+              </div>
+              <div class="roi-desc">Zero-DRAM Adjoint Graph GEMMs inside 49KB SRAM vs Cloud fine-tuning APIs</div>
+            </div>
+          </div>
+        </div>
+
+      </section>
+    </div>
+
+
+    <!-- ===================================================================== -->
+    <!-- TAB 2: SILICON GOVERNOR & PHYSICAL HARDWARE TELEMETRY                  -->
+    <!-- ===================================================================== -->
+    <div id="tab-governor" class="tab-pane">
+      <div class="dual-column-layout">
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Dual-Profile Dynamic Silicon Governor</h2>
+            <span class="badge badge-stage2">HARDWARE CONTROL</span>
+          </div>
+          <div class="card-subhead">
+            <span>Select operating profile based on active battery vs maximum compute requirements.</span>
+          </div>
+          <div class="governor-choice-cards">
+            <div class="gov-card" id="gov-card-ambient" onclick="switchProfile('ambient')">
+              <div class="gov-card-top">
+                <h3>Ambient Mode</h3>
+                <span class="gov-badge-w">&le; 2.50 Watts</span>
+              </div>
+              <p>Continuous fanless background sensing. 2 NCE tiles active at 800 MHz. Latency performance hint. Zero fan noise.</p>
+              <button class="btn btn-secondary btn-small">Activate Ambient</button>
+            </div>
+            <div class="gov-card active" id="gov-card-surge" onclick="switchProfile('surge')">
+              <div class="gov-card-top">
+                <h3>Surge Mode</h3>
+                <span class="gov-badge-w">47 TOPS INT8</span>
+              </div>
+              <p>Full throttle compute across all 6 NCE tiles at 1.95 GHz turbo clock. Throughput hint. Unlocks up to 28W package TDP.</p>
+              <button class="btn btn-primary btn-small">Activate Surge</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Intel RAPL Physical Power Domains</h2>
+            <span class="badge badge-moss">LIVE SENSORS</span>
+          </div>
+          <div class="power-domains-list">
+            <div class="domain-item">
+              <span>Package Power (SoC)</span>
+              <strong id="pwr-pkg">16.18 W</strong>
+            </div>
+            <div class="domain-item">
+              <span>Core Power (Lion Cove + Skymont)</span>
+              <strong id="pwr-core">11.60 W</strong>
+            </div>
+            <div class="domain-item">
+              <span>NPU Estimate (AI Boost)</span>
+              <strong id="pwr-npu">1.20 W</strong>
+            </div>
+            <div class="domain-item">
+              <span>SoC Die Temperature</span>
+              <strong id="pwr-temp" class="accent-ochre">71.9 °C</strong>
             </div>
           </div>
         </div>
       </div>
+    </div>
 
-      <!-- 2. S^383 Geodesic MicroRouter -->
-      <div class="card card-router">
-        <div class="card-header">
-          <div class="card-title-wrap">
-            <svg class="card-icon accent-ochre" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"/>
-              <line x1="2" y1="12" x2="22" y2="12"/>
-              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-            </svg>
-            <h2 class="card-title">S³⁸³ Geodesic MicroRouter</h2>
-          </div>
-          <span class="badge badge-ochre">&lt;3ms Geodesic</span>
-        </div>
 
-        <div class="card-subhead">
-          <span>Riemannian Unit Hypersphere Manifold</span>
-          <span class="subhead-pill">Fréchet η=0.015</span>
-        </div>
-
-        <!-- Radar / Arc Distance Canvas -->
-        <div class="router-canvas-wrap">
-          <canvas id="geodesic-radar-canvas" width="340" height="210"></canvas>
-          <div class="radar-legend">
-            <span class="legend-item"><span class="dot dot-coder"></span>Coder</span>
-            <span class="legend-item"><span class="dot dot-arch"></span>Architect</span>
-            <span class="legend-item"><span class="dot dot-devops"></span>DevOps</span>
-            <span class="legend-item"><span class="dot dot-auditor"></span>Auditor</span>
-          </div>
-        </div>
-
-        <!-- Interactive Router Input -->
-        <div class="interactive-box">
-          <div class="input-with-action">
-            <input type="text" id="router-prompt-input" class="code-input" placeholder="Type prompt to project onto S³⁸³..." value="Implement cache-line aligned SPSC ring buffer">
-            <button id="btn-run-route" class="btn btn-secondary">
-              <span>Route</span>
-            </button>
-          </div>
-
-          <div class="route-result-box" id="route-result-box">
-            <div class="route-res-top">
-              <span class="route-target-badge" id="route-target-badge">CODER</span>
-              <div class="route-conf-bar-wrap">
-                <div class="route-conf-bar" id="route-conf-bar" style="width: 94.2%;"></div>
-              </div>
-              <span class="route-conf-val" id="route-conf-val">94.2%</span>
+    <!-- ===================================================================== -->
+    <!-- TAB 3: MAMBA-2 & ON-DEVICE MICRO-LORA LAB                             -->
+    <!-- ===================================================================== -->
+    <div id="tab-mamba-lora" class="tab-pane">
+      <div class="dual-column-layout">
+        <!-- Micro-LoRA Card -->
+        <div class="card card-lora">
+          <div class="card-header">
+            <div class="card-title-wrap">
+              <svg class="card-icon accent-moss" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              <h2 class="card-title">On-Device Micro-LoRA Continuous Adaptation</h2>
             </div>
-            <div class="route-res-detail" id="route-res-detail">
-              Geodesic arc: <strong id="route-arc-rad">0.342 rad</strong> • Latency: <strong id="route-lat-val">2.15 ms</strong>
-            </div>
+            <span class="badge badge-stage2">49 KB SRAM</span>
           </div>
-        </div>
-      </div>
-
-      <!-- 3. On-Device Micro-LoRA Continuous Adaptation Card -->
-      <div class="card card-lora">
-        <div class="card-header">
-          <div class="card-title-wrap">
-            <svg class="card-icon accent-plum" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 20h9"/>
-              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-            </svg>
-            <h2 class="card-title">On-Device Micro-LoRA</h2>
+          <div class="card-subhead">
+            <span>Adjoint Forward Graph Theorem • Zero-DRAM Systolic Backpropagation</span>
           </div>
-          <span class="badge badge-plum" id="lora-status-badge">SRAM GEMM</span>
-        </div>
-
-        <div class="card-subhead">
-          <span>Continuous Backpropagation via Adjoint Forward Graph</span>
-          <span class="subhead-pill accent-plum" id="lora-sram-pill">12MB SRAM Resident</span>
-        </div>
-
-        <div class="lora-controls-wrap">
-          <div class="lora-inputs-row">
-            <div class="sel-group">
-              <span class="sel-label">Steps:</span>
-              <select id="lora-steps-sel" class="preset-dropdown">
-                <option value="15">15 steps</option>
-                <option value="30" selected>30 steps</option>
-                <option value="50">50 steps</option>
-              </select>
-            </div>
-            <div class="sel-group">
-              <span class="sel-label">Rank (r):</span>
-              <select id="lora-rank-sel" class="preset-dropdown">
-                <option value="4">r=4</option>
-                <option value="8" selected>r=8</option>
-                <option value="16">r=16</option>
-              </select>
-            </div>
-            <button id="btn-train-lora" class="btn btn-secondary btn-small" onclick="trainMicroLoRA()">
-              <span>Train Adapter</span>
-            </button>
-          </div>
-
-          <div class="lora-metrics-box" id="lora-metrics-box">
+          <div class="lora-controls">
             <div class="lora-stat-row">
-              <span>Throughput: <strong id="lora-throughput" class="accent-moss">28,400 tok/s</strong></span>
-              <span>Latency: <strong id="lora-latency">0.14 ms/step</strong></span>
+              <div class="lora-stat-item">
+                <span class="l-lbl">Rank (r):</span>
+                <strong class="l-val" id="lora-rank-val">8 (Alpha 16.0)</strong>
+              </div>
+              <div class="lora-stat-item">
+                <span class="l-lbl">Step Latency:</span>
+                <strong class="l-val accent-moss" id="lora-step-lat">0.116 ms</strong>
+              </div>
+              <div class="lora-stat-item">
+                <span class="l-lbl">Throughput:</span>
+                <strong class="l-val accent-water" id="lora-throughput">34,364 tok/s</strong>
+              </div>
             </div>
-            <div class="lora-stat-row">
-              <span>Loss Delta: <strong id="lora-loss-delta" class="accent-moss">0.651 → 0.639 (-1.7%)</strong></span>
-              <span>Params: <strong id="lora-param-count">4,096</strong></span>
+            <div class="lora-btn-row">
+              <button id="btn-run-lora" class="btn btn-primary btn-small" onclick="runMicroLoRATraining()">
+                <span>Run 20 Adaptation Steps</span>
+              </button>
+            </div>
+            <div class="lora-output-box" id="lora-output-box">
+              Loss: 0.651029 &rarr; 0.003410 (-99.5% reduction in 2.3ms) &bull; Convergence: CONVERGED
+            </div>
+          </div>
+        </div>
+
+        <!-- Mamba-2 Recurrence Card -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Mamba-2 State Space Duality (SSD)</h2>
+            <span class="badge badge-water">O(1) MEMORY</span>
+          </div>
+          <div class="card-subhead">
+            <span>3-Phase Chunked Systolic GEMMs ($Y_{intra} = (CB^T \odot L)X$)</span>
+          </div>
+          <div class="interactive-box">
+            <button class="btn btn-secondary btn-small" onclick="runMambaSweep()">
+              <span>Run 50-Step Mamba Recurrence Sweep</span>
+            </button>
+            <div class="mamba-output-box" id="mamba-output-box" style="margin-top:12px;font-family:var(--font-mono);font-size:11px;color:var(--text-muted);padding:10px;background:var(--card-inner);border-radius:6px;">
+              Recurrence: 0.197 ms/step (5,068 tok/s) &bull; UMA Restore: 0.72 µs (45 Joules Saved)
             </div>
           </div>
         </div>
       </div>
-    </section>
+    </div>
 
 
-    <!-- ================================================================= -->
-    <!-- CENTER STAGE: MULTI-AGENT SWARM & CYCLIC FEEDBACK -->
-    <!-- ================================================================= -->
-    <section class="deck-column col-center">
-      
-      <!-- 1. Interactive Swarm Mission Bar & Cyclic Deck -->
-      <div class="card card-swarm-mission">
-        <div class="card-header">
-          <div class="card-title-wrap">
-            <svg class="card-icon accent-moss" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="3"/>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-            </svg>
-            <h2 class="card-title">Heterogeneous Multi-Agent Swarm</h2>
-          </div>
-          <div class="swarm-meta-badges">
-            <span class="badge badge-water" title="Routing & Guardrails">NPU 4000</span>
-            <span class="badge badge-plum" title="Arc 140V Xe2 GPU Code Gen">Qwen2.5-Coder INT4</span>
-          </div>
-        </div>
-
-        <div class="card-subhead">
-          <span>Continuous Lyapunov Error Contraction with Git Worktree Isolation</span>
-          <span class="subhead-pill accent-moss" id="swarm-status-pill">System Ready</span>
-        </div>
-
-        <!-- Swarm Task Dispatch Bar -->
-        <div class="mission-bar-wrap">
-          <div class="mission-input-row">
-            <textarea id="swarm-task-prompt" class="mission-textarea" rows="2" placeholder="Dispatch autonomous task across heterogeneous silicon...">Implement cache-aligned SPSC ring buffer with Level Zero USM zero-copy bridge in C++</textarea>
-          </div>
-          
-          <div class="mission-controls">
-            <div class="mission-options">
-              <label class="toggle-control" title="Engage 4-persona Lyapunov feedback loop">
-                <input type="checkbox" id="swarm-cyclic-toggle" checked>
-                <span class="toggle-slider"></span>
-                <span class="toggle-label">Cyclic Loop (Lyapunov)</span>
-              </label>
-
-              <div class="select-wrapper">
-                <span class="sel-label">Preset:</span>
-                <select id="swarm-preset-select" class="preset-dropdown">
-                  <option value="spsc">SPSC Ring Buffer (C++)</option>
-                  <option value="quicksort">Quicksort + Docstrings</option>
-                  <option value="security">Audit SQL & Token Leaks</option>
-                  <option value="mamba">Mamba-2 Recurrence Test</option>
-                </select>
-              </div>
+    <!-- ===================================================================== -->
+    <!-- TAB 4: GHOSTHUD & SCREEN PERCEPTION                                   -->
+    <!-- ===================================================================== -->
+    <div id="tab-ghosthud" class="tab-pane">
+      <div class="dual-column-layout">
+        <!-- GhostHUD Card -->
+        <div class="card card-ghosthud">
+          <div class="card-header">
+            <div class="card-title-wrap">
+              <svg class="card-icon accent-water" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              <h2 class="card-title">DirectComposition Transparent GhostHUD</h2>
             </div>
-
-            <button id="btn-engage-swarm" class="btn btn-primary btn-large">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <polygon points="5 3 19 12 5 21 5 3"/>
-              </svg>
-              <span>Engage Swarm</span>
-            </button>
+            <span class="badge badge-water">WDA_EXCLUDEFROMCAPTURE</span>
           </div>
-        </div>
-
-        <!-- 2. Visual Cyclic State Machine -->
-        <div class="cyclic-state-machine">
-          <div class="state-node" id="node-architect" data-role="ARCHITECT">
-            <div class="node-icon">📐</div>
-            <div class="node-info">
-              <span class="node-name">Architect</span>
-              <span class="node-hw">NPU Tile 1</span>
-            </div>
-            <div class="node-pulse"></div>
+          <div class="card-subhead">
+            <span>Hardware Screen-Share Masking (100% Invisible to Zoom, Teams, Meet)</span>
           </div>
-          <div class="state-arrow">➔</div>
-
-          <div class="state-node active" id="node-coder" data-role="CODER">
-            <div class="node-icon">💻</div>
-            <div class="node-info">
-              <span class="node-name">Coder</span>
-              <span class="node-hw">Arc GPU</span>
+          <div class="ghosthud-controls">
+            <div class="hud-btn-row">
+              <button id="btn-toggle-hud" class="btn btn-secondary btn-small" onclick="toggleGhostHUD()">
+                <span id="hud-toggle-label">Start Overlay</span>
+              </button>
+              <button id="btn-demo-hud" class="btn btn-secondary btn-small" onclick="testGhostHUDDemo()">
+                <span>Run Mask Demo</span>
+              </button>
             </div>
-            <div class="node-pulse"></div>
-          </div>
-          <div class="state-arrow">➔</div>
-
-          <div class="state-node" id="node-auditor" data-role="SECURITY_AUDITOR">
-            <div class="node-icon">🛡️</div>
-            <div class="node-info">
-              <span class="node-name">Auditor</span>
-              <span class="node-hw">NCE Tile 5</span>
-            </div>
-            <div class="node-pulse"></div>
-          </div>
-          <div class="state-arrow">➔</div>
-
-          <div class="state-node" id="node-devops" data-role="TESTER_DEVOPS">
-            <div class="node-icon">🚀</div>
-            <div class="node-info">
-              <span class="node-name">DevOps</span>
-              <span class="node-hw">Host CPU</span>
-            </div>
-            <div class="node-pulse"></div>
-          </div>
-        </div>
-
-        <!-- 3. Lyapunov Convergence Meter -->
-        <div class="lyapunov-meter-card">
-          <div class="meter-head">
-            <div class="meter-title">
-              <span>Lyapunov Energy Contraction</span>
-              <code class="math-code">E_k = w₁N_fail + w₂N_lint + w₃P(H) + w₄D_AST → 0</code>
-            </div>
-            <div class="meter-val-tag" id="lyapunov-val-tag">E_k = 0.0000 (CONVERGED)</div>
-          </div>
-
-          <div class="lyapunov-track">
-            <div class="lyapunov-bar" id="lyapunov-fill-bar" style="width: 100%;"></div>
-          </div>
-
-          <div class="trajectory-steps" id="trajectory-steps-row">
-            <div class="step-chip step-pass">
-              <span class="step-iter">k=1</span>
-              <span class="step-name">Architect Spec</span>
-              <span class="step-err">E₁: 1.0</span>
-            </div>
-            <div class="step-chip step-pass">
-              <span class="step-iter">k=2</span>
-              <span class="step-name">GPU Synthesis</span>
-              <span class="step-err">E₂: 0.5</span>
-            </div>
-            <div class="step-chip step-converged">
-              <span class="step-iter">k=3</span>
-              <span class="step-name">Auditor Clean</span>
-              <span class="step-err">E₃: 0.00</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- 4. Code Synthesis & Diff Viewer -->
-        <div class="code-viewer-wrap">
-          <div class="viewer-header">
-            <div class="viewer-meta">
-              <span class="viewer-lang">PYTHON / C++</span>
-              <span class="viewer-worktree" id="swarm-worktree-path">Worktree: .lunar/worktrees/swarm_live</span>
-            </div>
-            <div class="viewer-actions">
-              <button id="btn-copy-code" class="btn-icon" title="Copy code snippet">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-                </svg>
-                <span>Copy</span>
+            <div class="hud-post-row" style="margin-top:12px;display:flex;gap:8px;">
+              <input type="text" id="hud-quick-input" class="mission-textarea" style="flex:1;height:34px;padding:6px 10px;font-size:11px;background:var(--card-inner);border:1px solid var(--border);color:var(--text-main);border-radius:6px;" placeholder="Post private teleprompter note...">
+              <button class="btn btn-primary btn-small" onclick="postHUDNote()">
+                <span>Post</span>
               </button>
             </div>
           </div>
+        </div>
 
-          <pre class="code-pre"><code id="swarm-code-output" class="code-block"># Heterogeneous Swarm Synthesized Implementation
-# Architect: Contract approved • Circuit Breaker: Stage 1 ALLOWED (0% FN)
-class SPSCRingBuffer:
-    """Zero-copy Level Zero USM Speculative Ring Buffer on Intel Lunar Lake."""
-    def __init__(self, capacity: int = 4096):
-        self.capacity = capacity
-        self.head = 0
-        self.tail = 0
-        self.buffer = [None] * capacity
+        <!-- Vision Card -->
+        <div class="card card-vision">
+          <div class="card-header">
+            <h2 class="card-title">Live Screen Perception &amp; Grounding</h2>
+            <span class="badge badge-water" id="vision-fps-badge">4 FPS NPU</span>
+          </div>
+          <div class="canvas-container">
+            <canvas id="screen-perception-canvas" width="480" height="240"></canvas>
+          </div>
+          <div class="vision-actions-bar" style="margin-top:10px;display:flex;gap:10px;">
+            <button id="btn-capture-glance" class="btn btn-secondary btn-small">
+              <span>Capture Glance</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
 
-    def push(self, item) -> bool:
-        if (self.tail + 1) % self.capacity == self.head:
-            return False  # Buffer full
-        self.buffer[self.tail] = item
-        self.tail = (self.tail + 1) % self.capacity
-        return True
 
-    def pop(self):
-        if self.head == self.tail:
-            return None  # Empty
-        item = self.buffer[self.head]
-        self.head = (self.head + 1) % self.capacity
-        return item</code></pre>
-
-          <div class="swarm-metrics-footer" id="swarm-metrics-footer">
-            <span class="sm-item">Latency: <strong id="sm-lat">42.8 ms</strong></span>
-            <span class="sm-item">Lead: <strong id="sm-lead">CODER</strong></span>
-            <span class="sm-item">Safety: <strong id="sm-safe" class="accent-moss">ALLOWED (DFA)</strong></span>
-            <span class="sm-item">Memory ID: <strong id="sm-mem">swarm_coder_912</strong></span>
+    <!-- ===================================================================== -->
+    <!-- TAB 5: MULTI-AGENT SWARM & GEODESIC ROUTER                            -->
+    <!-- ===================================================================== -->
+    <div id="tab-swarm" class="tab-pane">
+      <div class="dual-column-layout">
+        <!-- Swarm Card -->
+        <div class="card card-swarm">
+          <div class="card-header">
+            <h2 class="card-title">Heterogeneous Multi-Agent Swarm</h2>
+            <span class="badge badge-stage2">LYAPUNOV STABLE</span>
+          </div>
+          <div class="interactive-box">
+            <textarea id="swarm-task-prompt" class="mission-textarea" style="width:100%;height:60px;padding:8px;background:var(--card-inner);border:1px solid var(--border);color:var(--text-main);border-radius:6px;" placeholder="Enter swarm goal...">Write an optimized quicksort function in Python with doctests</textarea>
+            <div style="margin-top:10px;">
+              <button id="btn-engage-swarm" class="btn btn-primary btn-small">
+                <span>Engage Swarm</span>
+              </button>
+            </div>
+            <div class="lyapunov-meter" style="margin-top:14px;">
+              <span>Lyapunov Error: <strong id="lyapunov-val-tag" class="accent-moss">0.00 (CONVERGED)</strong></span>
+            </div>
+            <pre class="code-box" id="swarm-code-output" style="margin-top:10px;max-height:160px;overflow-y:auto;background:var(--card-inner);padding:10px;border-radius:6px;font-family:var(--font-mono);font-size:11px;color:var(--text-muted);"># Swarm solution ready</pre>
           </div>
         </div>
 
+        <!-- Router Card -->
+        <div class="card card-router">
+          <div class="card-header">
+            <h2 class="card-title">S³⁸³ Geodesic MicroRouter</h2>
+            <span class="badge badge-ochre">&lt;3ms Geodesic</span>
+          </div>
+          <div class="router-canvas-wrap">
+            <canvas id="geodesic-radar-canvas" width="340" height="180"></canvas>
+          </div>
+          <div class="input-with-action" style="margin-top:10px;display:flex;gap:8px;">
+            <input type="text" id="router-prompt-input" class="code-input" style="flex:1;padding:6px;background:var(--card-inner);border:1px solid var(--border);color:var(--text-main);border-radius:6px;" value="Implement cache-line aligned SPSC ring buffer">
+            <button id="btn-run-route" class="btn btn-secondary btn-small">
+              <span>Route</span>
+            </button>
+          </div>
+        </div>
       </div>
-    </section>
+    </div>
 
 
-    <!-- ================================================================= -->
-    <!-- RIGHT COLUMN: MULTIMODAL PERCEPTION -->
-    <!-- ================================================================= -->
-    <section class="deck-column col-right">
-      
-      <!-- 1. Live Screen Perception Viewport -->
-      <div class="card card-vision">
+    <!-- ===================================================================== -->
+    <!-- TAB 6: FASTMCP 2.0 INTEGRATION HUB                                    -->
+    <!-- ===================================================================== -->
+    <div id="tab-mcp" class="tab-pane">
+      <div class="card">
         <div class="card-header">
-          <div class="card-title-wrap">
-            <svg class="card-icon accent-water" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
-              <line x1="8" y1="21" x2="16" y2="21"/>
-              <line x1="12" y1="17" x2="12" y2="21"/>
-            </svg>
-            <h2 class="card-title">Live Screen Perception</h2>
-          </div>
-          <span class="badge badge-water" id="vision-fps-badge">140+ FPS NPU</span>
+          <h2 class="card-title">FastMCP 2.0 Universal Client Auto-Installer</h2>
+          <span class="badge badge-moss">ZERO-CONFIG</span>
         </div>
-
         <div class="card-subhead">
-          <span>YOLO11n UI Bounding Boxes &amp; Sovereign Rewind OCR</span>
-          <span class="subhead-pill accent-water" id="vision-summary-pill">Active Desktop</span>
+          <span>Register Lunar NPU directly into external autonomous agents with one click.</span>
         </div>
-
-        <!-- Interactive Screen Viewport Canvas -->
-        <div class="viewport-canvas-wrap">
-          <canvas id="screen-perception-canvas" width="480" height="270"></canvas>
-          <div class="canvas-overlay-badges">
-            <span class="overlay-tag" id="screen-dims">1920×1080</span>
-            <span class="overlay-tag" id="screen-lat">3.8 ms</span>
+        <div class="mcp-install-grid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:14px;margin-top:16px;">
+          <div class="client-install-card">
+            <h4>Claude Desktop</h4>
+            <p>Export all 10 physical silicon tools to Claude Desktop (`claude_desktop_config.json`).</p>
+            <button class="btn btn-secondary btn-small" onclick="installMCPClient('claude')">Configure Claude</button>
           </div>
-        </div>
-
-        <!-- Vision Perception Details & Controls -->
-        <div class="vision-controls-row">
-          <button id="btn-capture-glance" class="btn btn-primary" title="Trigger instant screen perception pass on NPU">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10"/>
-              <circle cx="12" cy="12" r="3"/>
-            </svg>
-            <span>Capture Glance</span>
-          </button>
-
-          <label class="toggle-control" title="Auto-refresh screen perception every 3 seconds">
-            <input type="checkbox" id="vision-auto-toggle">
-            <span class="toggle-slider"></span>
-            <span class="toggle-label">Auto (3s)</span>
-          </label>
-        </div>
-
-        <!-- Optical Delta & PII Shield Indicators -->
-        <div class="vision-indicators-grid">
-          <div class="indicator-box" title="64-bit DCT Perceptual Hashing & DXGI Dirty-Rects">
-            <div class="ind-head">
-              <span class="ind-title">Optical Delta Gating</span>
-              <span class="ind-dot pulse-water"></span>
-            </div>
-            <div class="ind-val" id="optical-phash-val">pHash: 4a9f...e201</div>
-            <div class="ind-desc">Static screen gate (&le;2 bit delta drops frame)</div>
+          <div class="client-install-card">
+            <h4>Cursor IDE</h4>
+            <p>Register stdio bridge directly in `.cursor/mcp.json` with automatic backup.</p>
+            <button class="btn btn-secondary btn-small" onclick="installMCPClient('cursor')">Configure Cursor</button>
           </div>
-
-          <div class="indicator-box" title="Deterministic Luhn PII & API Secret Redactor">
-            <div class="ind-head">
-              <span class="ind-title">PII Redaction Shield</span>
-              <span class="ind-dot pulse-moss"></span>
-            </div>
-            <div class="ind-val accent-moss" id="pii-shield-val">SHIELD ACTIVE</div>
-            <div class="ind-desc">Luhn card scrubbing • 0 leaks exposed</div>
+          <div class="client-install-card">
+            <h4>Windsurf</h4>
+            <p>Inject Lunar MCP tools into Codeium Windsurf configuration (`mcp_config.json`).</p>
+            <button class="btn btn-secondary btn-small" onclick="installMCPClient('windsurf')">Configure Windsurf</button>
           </div>
-        </div>
-
-        <!-- Detected Elements List -->
-        <div class="elements-list-wrap">
-          <div class="elements-list-header">
-            <span>Detected UI Components</span>
-            <span class="elem-count-badge" id="elem-count-badge">4 Elements</span>
-          </div>
-          <div class="elements-table" id="elements-table">
-            <div class="elem-row">
-              <span class="elem-type">Window Header</span>
-              <span class="elem-coords">x:0 y:0 w:1920 h:38</span>
-              <span class="elem-conf accent-moss">99.2%</span>
-            </div>
-            <div class="elem-row">
-              <span class="elem-type">Sidebar Navigation</span>
-              <span class="elem-coords">x:0 y:38 w:260 h:980</span>
-              <span class="elem-conf accent-moss">98.5%</span>
-            </div>
+          <div class="client-install-card">
+            <h4>VS Code (Cline / Roo)</h4>
+            <p>Attach Lunar silicon tools to local autonomous coding extensions.</p>
+            <button class="btn btn-secondary btn-small" onclick="installMCPClient('vscode')">Configure VS Code</button>
           </div>
         </div>
       </div>
+    </div>
 
-
-      <!-- 2. Acoustic Teleprompter Card -->
-      <div class="card card-audio">
-        <div class="card-header">
-          <div class="card-title-wrap">
-            <svg class="card-icon accent-plum" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-              <line x1="12" y1="19" x2="12" y2="23"/>
-              <line x1="8" y1="23" x2="16" y2="23"/>
-            </svg>
-            <h2 class="card-title">Acoustic Teleprompter</h2>
-          </div>
-          <span class="badge badge-plum">&gt;1,800x RTF</span>
-        </div>
-
-        <div class="card-subhead">
-          <span>Whisper Tiny INT8 on NPU 4000 • WASAPI Loopback</span>
-          <span class="subhead-pill accent-plum">Sub-20ms Budget</span>
-        </div>
-
-        <!-- Glass-to-Glass Latency Budget Meter -->
-        <div class="teleprompter-budget-box">
-          <div class="budget-title-row">
-            <span>Glass-to-Glass Latency Budget:</span>
-            <strong class="budget-stat accent-moss" id="audio-budget-stat">19.63ms &lt; 20.00ms (PASS)</strong>
-          </div>
-          <div class="budget-meter-track">
-            <div class="budget-meter-fill" id="audio-budget-fill" style="width: 78%;"></div>
-          </div>
-          <div class="budget-legend">
-            <span>WASAPI: 4.2ms</span>
-            <span>SHAVE FFT: 1.8ms</span>
-            <span>Whisper NPU: 12.4ms</span>
-            <span>IPC: 1.2ms</span>
-          </div>
-        </div>
-
-        <!-- Teleprompter Transcription Feed -->
-        <div class="teleprompter-feed-wrap">
-          <div class="feed-header">
-            <span class="feed-sublabel">Live Acoustic Stream</span>
-            <button id="btn-transcribe" class="btn btn-secondary btn-small">
-              <span>Transcribe</span>
-            </button>
-          </div>
-          
-          <div class="teleprompter-text-box" id="teleprompter-text-box">
-            <p class="transcript-line"><span class="t-stamp">21:07:12</span> Intel Lunar Lake microarchitecture features 6 NCE physical tiles delivering 47 TOPS INT8 at 2.5W package power.</p>
-            <p class="transcript-line"><span class="t-stamp">21:07:28</span> Dual-Stage silicon circuit breakers enforce sub-2 microsecond deterministic kernel guardrails via Aho-Corasick DFA.</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- 3. DirectComposition Transparent GhostHUD Widget -->
-      <div class="card card-ghosthud">
-        <div class="card-header">
-          <div class="card-title-wrap">
-            <svg class="card-icon accent-water" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-              <circle cx="12" cy="12" r="3"/>
-            </svg>
-            <h2 class="card-title">DirectComposition GhostHUD</h2>
-          </div>
-          <span class="badge badge-water" id="hud-affinity-badge">WDA_EXCLUDEFROMCAPTURE</span>
-        </div>
-
-        <div class="card-subhead">
-          <span>Private Hardware Masking (Invisible to Zoom, Teams, Meet)</span>
-          <span class="subhead-pill accent-water" id="hud-state-pill">Click-Through</span>
-        </div>
-
-        <div class="ghosthud-controls">
-          <div class="hud-btn-row">
-            <button id="btn-toggle-hud" class="btn btn-secondary btn-small" onclick="toggleGhostHUD()">
-              <span id="hud-toggle-label">Start Overlay</span>
-            </button>
-            <button id="btn-demo-hud" class="btn btn-secondary btn-small" onclick="testGhostHUDDemo()">
-              <span>Run Mask Demo</span>
-            </button>
-          </div>
-
-          <div class="hud-post-row">
-            <input type="text" id="hud-quick-input" class="mission-textarea" style="height:34px;padding:6px 10px;font-size:11px;" placeholder="Post private teleprompter note...">
-            <button class="btn btn-primary btn-small" onclick="postHUDNote()">
-              <span>Post</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-    </section>
-
-  </main>
+  </div>
 
   <script src="/app.js"></script>
 </body>

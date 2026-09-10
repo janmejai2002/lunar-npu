@@ -1,0 +1,18 @@
+{
+  "$schema": "https://agent-craft.dev/schema.json",
+  "version": "1.1.0",
+  "targets": [
+    "src"
+  ],
+  "failOnError": true,
+  "rules": {
+    "a11y/wcag-aa-contrast": "error",
+    "ergonomics/tap-target": "error",
+    "ergonomics/fixed-width": "error",
+    "viewport/safari-jump": "warn",
+    "slop/gradient-hero": "warn",
+    "slop/card-in-card": "warn",
+    "slop/generic-copy": "warn",
+    "token/arbitrary-spacing": "warn"
+  }
+}

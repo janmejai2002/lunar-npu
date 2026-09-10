@@ -33,3 +33,5 @@ __all__ = [
 
 __version__ = '2.1.0'
 
+
+from .srnc import SiliconReflexNeuralCompiler, RowanCSTBridge, CassowarySimplexLayoutSolver, ApcaOklchConvexOptimizer, WindowsNamedRingBufferShm
