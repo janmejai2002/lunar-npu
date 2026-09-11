@@ -24,8 +24,22 @@ def test_speculative_cycle_full():
     assert len(res["draft_tokens"]) == 3
     assert res["accepted_count"] >= 1
     assert 0.0 <= res["acceptance_rate"] <= 1.0
-    assert res["speedup_factor"] >= 1.0
     assert "total_latency_ms" in res
+
+    # The previous assertion here was `res["speedup_factor"] >= 1.0`, which
+    # could not fail: the value was computed as max(speedup, 1.0). The clamp is
+    # gone, so assert the internally consistent relationship instead.
+    assert res["speedup_factor"] == pytest.approx(
+        res["baseline_latency_ms"] / res["total_latency_ms"], rel=1e-2
+    ), "speedup_factor is not consistent with the latencies it is derived from"
+
+    # Honest expectation while the draft model is untrained random weights:
+    # acceptance is near zero, so speculation costs more than it saves.
+    assert res["draft_model_trained"] is False
+    assert res["speedup_factor"] < 1.0, (
+        "Speculation appears to be winning with an untrained draft model, which "
+        "would be surprising. If a real draft model was wired in, update this test."
+    )
 
 
 def test_speculative_real_target_verifier():

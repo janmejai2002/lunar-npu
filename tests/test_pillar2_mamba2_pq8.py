@@ -1,4 +1,4 @@
-"""Unit and integration tests for Pillar 2: Mamba-2 SSD & PQ8 Systolic Memory."""
+﻿"""Unit and integration tests for Pillar 2: Mamba-2 SSD & PQ8 Systolic Memory."""
 
 import numpy as np
 import pytest
@@ -103,7 +103,7 @@ def test_product_quantizer_pq8_adc_lut():
 
 def test_systolic_vector_memory_search_and_decay():
     sys_mem = LunarSystolicVectorMemory()
-    sys_mem.add("Intel Core Ultra 7 258V Lunar Lake SoC", doc_id="d1")
+    sys_mem.add("Intel Core Ultra 7 256V Lunar Lake SoC", doc_id="d1")
     sys_mem.add("Mamba-2 SSD recurrence on NPU silicon", doc_id="d2")
     sys_mem.add("Level Zero USM Direct3D shared NT handle", doc_id="d3")
 
