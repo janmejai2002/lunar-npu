@@ -1194,3 +1194,120 @@ shape error and the "Found 80 duplicated names" compiler failure could come from
 an export produced by an unsupported Transformers version. Worth testing in an
 isolated virtual environment before concluding that LLM-on-NPU is unavailable
 here. Do not downgrade the main environment; other work depends on 4.57.6.
+
+---
+
+## 18. Designing FOR the NPU: what can and cannot be derived **[MEASURED 2026-09-12]**
+
+Everything so far has been about porting existing models TO this NPU. The better
+question is what shape of model the silicon actually wants. That requires a
+performance model -- a way to predict what will be fast before building it.
+
+**Four candidate mechanisms were tested. All four were refuted.** The honest
+conclusion is that a usable performance model for this device does not exist
+yet, which is itself the most important finding in this section.
+
+### 18.1 Refuted: quantised activations explain the INT8 wins
+
+15.2. BGE-base has **zero** FakeQuantize nodes -- weight-only compression, the
+same structure that gave MiniLM no benefit -- and the NPU still beats the GPU on
+it consistently.
+
+### 18.2 Refuted: SRAM residency
+
+If NPU 4 has ~12 MB of on-die scratchpad, a model whose weights fit entirely
+inside it should never stream from DRAM, and there should be a sharp cliff past
+that size. Sweeping matmul stacks from 2 MB to 128 MB of weights at batch 8:
+
+| weights | NPU ms | NPU TFLOP/s | GPU ms |
+| --: | --: | --: | --: |
+| 2.0 MB | 0.589 | 0.03 | 0.199 |
+| 9.0 MB | 1.659 | 0.05 | 0.391 |
+| **12.0 MB** | 2.237 | 0.04 | 0.322 |
+| 16.0 MB | 2.655 | 0.05 | 0.369 |
+| 36.0 MB | 5.015 | 0.06 | 0.561 |
+| 128.0 MB | 14.067 | 0.08 | 2.738 |
+
+**No cliff.** Efficiency is flat across the 12 MB boundary and in fact rises
+slightly with size. Weight residency is not the limiting factor.
+
+### 18.3 Refuted: the NPU is weight-bandwidth bound
+
+The sweep above appeared to show NPU time scaling linearly with weight bytes at
+a flat ~9 GB/s, which looked like a clean bandwidth limit. **That reading was
+wrong, and it was an artifact of holding batch fixed at 8.**
+
+Holding the weights fixed (16 MB) and varying only batch:
+
+| batch | NPU GB/s | NPU TFLOP/s | GPU GB/s | GPU TFLOP/s |
+| --: | --: | --: | --: | --: |
+| 1 | 29.3 | 0.029 | 35.0 | 0.035 |
+| 4 | 12.0 | 0.048 | 51.8 | 0.207 |
+| 16 | 27.5 | 0.440 | 41.0 | 0.656 |
+| 64 | 17.7 | 1.136 | 33.6 | 2.148 |
+| 256 | 7.2 | 1.842 | 9.7 | 2.480 |
+| 1024 | 2.3 | **2.401** | 4.3 | **4.444** |
+
+A bandwidth-bound device holds GB/s constant as batch rises. A compute-bound one
+holds TFLOP/s constant. **Neither happens.** GB/s swings from 29 to 2, TFLOP/s
+climbs from 0.03 to 2.4 and then plateaus. The device is dispatch-dominated at
+small batch and approaches a soft compute ceiling at large batch, with no clean
+regime in between.
+
+### 18.4 Refuted: halving weight bytes speeds up the NPU
+
+The sharpest prediction from the bandwidth theory: INT8 halves the bytes, so it
+should roughly double throughput. Same graphs, weight-only INT8:
+
+| config | fp16 | int8 | speedup |
+| :-- | --: | --: | --: |
+| N1024 x8 b8 | 2.676 ms | 2.735 ms | **0.98x** |
+| N1536 x8 b8 | 5.408 ms | 5.566 ms | **0.97x** |
+| N2048 x8 b8 | 7.570 ms | 7.971 ms | **0.95x** |
+
+Halving the weight bytes changes nothing. Weight volume is not the limit.
+
+### 18.5 What this means
+
+**The YOLO11n and BGE-base wins are real, reproducible (5/5), and mechanistically
+unexplained.** Four plausible mechanisms have been tested and eliminated. Without
+a performance model you cannot derive a good architecture for this chip -- you can
+only search empirically.
+
+That is a legitimate research programme. It is not a product plan, and it should
+not be mistaken for one.
+
+### 18.6 What CAN be derived, and it is not nothing
+
+Hard constraints, all measured, all reliable:
+
+| constraint | value | source |
+| :-- | :-- | :-- |
+| Static shapes only | dynamic IR will not compile | 11.1 |
+| FP16 / INT8 only, no FP32 | `DEVICE_GOPS float32 = 0.0` | 2.1 |
+| Dispatch floor | ~0.22 ms per call | 1 |
+| Achievable fraction of peak | ~22% (GPU: 42%) | 17.2 |
+| **Convolutions beat matmuls** | **5.05 vs 2.40 TFLOP/s** | 17.2, 18.3 |
+| Host CPU per inference | **0.40 ms vs GPU's 3.95 ms** | 15.4 |
+| Quantising your own models | toolchain fails | 15.2 |
+
+From those, a model designed **for** this silicon should be:
+
+1. **Convolutional or state-space, not attention-heavy.** Convolutions hit
+   roughly 2x the TFLOP/s of matmuls here. This is the clearest architectural
+   signal in the data.
+2. **Fixed-shape end to end**, no dynamic control flow, no growing cache.
+3. **Fused into one graph per invocation**, because six small calls cost six
+   dispatch floors.
+4. **Justified by the CPU-freeing property, not by speed.** 0.40 ms of host CPU
+   per inference is the one advantage no other engine on this chip offers, and
+   it is architecture-independent.
+
+That points away from "a small LLM" and toward **continuous streaming perception**
+-- always-on audio event detection, ambient activity understanding, sensor
+fusion. Workloads that run for hours, where taking a tenth of a core instead of a
+whole one is the entire product argument, and where nobody cares whether a single
+inference took 4 ms or 6 ms.
+
+The SSM work in sections 13-16 fits that profile exactly: fixed shape, constant
+state, streaming input, runs forever.
