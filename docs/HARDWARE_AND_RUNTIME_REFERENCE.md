@@ -614,3 +614,132 @@ on a loaded machine.
    out to **52 ms**. So for anything latency-sensitive, the CPU is the fastest
    choice on average and the worst choice at the tail. That tradeoff is worth
    knowing and is not what anyone assumes.
+
+---
+
+## 13. CONFIRMED: SSM/Mamba is the architecture this NPU can actually run **[MEASURED]**
+
+This section corrects an error in the earlier analysis. Sections 11 and 12
+concluded that the NPU had no viable role. That conclusion was drawn entirely
+from transformer workloads, and it does not generalise. **Every NPU failure
+recorded in this document is transformer-specific**, and a state-space model
+inverts all four.
+
+| Constraint found | Transformer | SSM / Mamba |
+| :-- | :-- | :-- |
+| NPU needs static shapes (11.1) | dynamic `[?,?]`, will not compile | one token in, fixed state; **compiles** |
+| Decode is bandwidth-bound (11.2) | streams weights + growing KV cache | streams constant-size state |
+| State size vs context | KV cache grows without bound | constant, independent of context |
+| ~0.22 ms dispatch floor (1) | n/a | amortised by fusing all layers into one graph |
+
+### 13.1 The recurrence is correct and runs on the NPU **[MEASURED]**
+
+`lunar_core/mamba_ssm.py` loads genuine Mamba-130M weights from HuggingFace
+safetensors (`backbone.layers.0.mixer.A_log`, `.D`, `.dt_proj.bias`) and applies
+the correct zero-order-hold discretisation:
+
+```
+A     = -exp(A_log)
+dt    = softplus(dt_bias)
+A_bar = exp(dt * A)        measured range [0.00000, 0.99878]  -- stable
+```
+
+Verified against an independent numpy reference
+`h = A*h + B*x ; y = sum(C*h) + D*x`:
+
+| device | compiles | max abs error vs reference |
+| :-- | :-- | --: |
+| CPU | yes | 2.384e-07 |
+| GPU | yes | 1.588e-03 (FP16 rounding) |
+| **NPU** | **yes** | 1.588e-03 (FP16 rounding) |
+
+Running 4000 sequential steps on the NPU: state stayed finite, `max|h| = 3.332`,
+no drift or blowup.
+
+### 13.2 Per-token cost is flat; the transformer's is not **[MEASURED]**
+
+NPU recurrence, per-token latency by context position:
+
+| context | 100 | 500 | 1000 | 2000 | 4000 |
+| :-- | --: | --: | --: | --: | --: |
+| ms/token | 0.413 | 0.409 | 0.371 | 0.486 | 0.384 |
+
+Flat. Real Qwen2.5-0.5B-int4 decode over the same range, measured with the KV
+cache genuinely populated by a prefill:
+
+| context | 64 | 256 | 1024 | 2048 | 4096 |
+| :-- | --: | --: | --: | --: | --: |
+| CPU ms/token | 17.4 | 22.7 | 28.0 | 35.6 | 34.5 |
+| growth vs ctx=64 | 1.00x | 1.30x | 1.60x | **2.04x** | 1.98x |
+
+The transformer roughly doubles by 2K context. The GPU curve is noisier, 13.3 ms
+at ctx=256 rising to 24.1 ms at 2048 (about 1.8x), because each context used a
+fresh infer request and the first is cold. The CPU curve is the clean one.
+
+### 13.3 State size: the structural argument **[computed from architecture]**
+
+Mamba-130M state is `24 layers * 1536 d_inner * 16 d_state`, constant:
+
+| | memory | vs Mamba |
+| :-- | --: | --: |
+| Mamba-130M state (any context) | **1.12 MB** | 1x |
+| Qwen-0.5B KV at 1K ctx | 12 MB | 10.7x |
+| Qwen-0.5B KV at 4K ctx | 48 MB | 42.7x |
+| Qwen-0.5B KV at 16K ctx | 192 MB | 170.7x |
+| Qwen-0.5B KV at 64K ctx | 768 MB | 682.7x |
+
+On a device where decode is bandwidth-bound and memory is shared with the CPU
+and GPU over one 136 GB/s bus, this is the whole argument.
+
+### 13.4 Full-depth Mamba compiles on the NPU, fused **[MEASURED]**
+
+Fusing all layers into ONE graph matters: 24 separate dispatches at the ~0.22 ms
+floor would cost about 5 ms/token in overhead alone. Fused, per token:
+
+| config | CPU | GPU | NPU | state |
+| :-- | --: | --: | --: | --: |
+| 64x16, 1 layer (the repo toy) | 0.042 ms | 0.086 ms | 0.327 ms | 4 KB |
+| 1536x16, 1 layer | 0.065 ms | 0.103 ms | 0.390 ms | 0.09 MB |
+| 1536x16, 4 layers | 0.203 ms | 0.287 ms | 0.611 ms | 0.38 MB |
+| **1536x16, 24 layers (Mamba-130M depth)** | 1.884 ms | 1.585 ms | **2.108 ms** | 2.25 MB |
+
+Note what happens to the gap. On the toy the NPU is 7.8x slower than the CPU; at
+full depth it is **1.12x** slower than the CPU and **1.33x** slower than the GPU.
+Real work per dispatch finally amortises the floor. This is the first workload
+measured in this document where the NPU is competitive.
+
+### 13.5 What is NOT there - read before believing the above
+
+The implementation is a correct SSM **kernel**, not a Mamba language model:
+
+1. **B and C are fabricated, not loaded.** `B_bar = dt * ones` and
+   `C = ones / sqrt(d_state)`. In Mamba both are *input-dependent* - that
+   selectivity is the entire contribution of S6 over S4. What runs here is a
+   linear time-invariant SSM using the Mamba A matrix. Fixing this is the single
+   most important piece of work.
+2. **`np.resize` from (1536,16) to (64,16)** tiles and truncates, scrambling
+   which channel is which.
+3. **No embedding, no LM head, no in_proj / conv1d / gating / out_proj**, and
+   only layer 0 A_log. It cannot generate text.
+4. **The 2.108 ms above is the scan only.** A real Mamba block is dominated by
+   its projections (`d_model -> 2*d_inner` in, `d_inner -> d_model` out), which
+   are most of the 130M parameters. Expect a full model to be several times this.
+5. **Prefill is the hard problem.** Sequential recurrence at 2.1 ms x 4096 tokens
+   is 8.6 s, which is unusable. This needs the chunked associative scan, covered
+   in `docs/MAMBA_SSM_REFERENCE.md` chapters 8 and 12.
+
+### 13.6 What to build toward
+
+In order:
+
+1. Export a real Mamba (Mamba-130M to start, then Mamba-2 or Falcon-Mamba-7B)
+   to OpenVINO IR with static per-token shapes. No public Mamba NPU IR exists.
+   This is both the work and the moat.
+2. Wire real selective B and C. They are input-dependent but still fixed-shape
+   per token, so they stay NPU-compatible.
+3. Keep all layers fused into one graph; 13.4 shows why.
+4. Implement the chunked parallel scan for prefill.
+
+If that lands, the claim is: **a local language model running on the NPU with
+unbounded context at constant memory, on hardware where transformers will not
+compile at all.** That is worth building, and nobody has shipped it.
