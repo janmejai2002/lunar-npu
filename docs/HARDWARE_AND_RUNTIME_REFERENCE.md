@@ -743,3 +743,119 @@ In order:
 If that lands, the claim is: **a local language model running on the NPU with
 unbounded context at constant memory, on hardware where transformers will not
 compile at all.** That is worth building, and nobody has shipped it.
+
+---
+
+## 14. GATE 0 result: FP16 caps usable SSM context at roughly 10K tokens **[MEASURED]**
+
+Section 13.6 proposed a long-context Mamba on the NPU: unbounded context at
+constant memory. Before building it, the cheapest kill shot was run -- does the
+recurrence survive tens of thousands of steps at the precision the NPU actually
+computes in? It does not, and the failure is now precisely characterised.
+
+### 14.1 The measurement
+
+Real Mamba-130M layer-0 discretised `A_bar` (1536x16), 20,000 sequential steps,
+each device running the identical OpenVINO graph, compared against an fp64
+numpy reference:
+
+| device | @500 | @5K | @10K | @20K | final max\|h\| |
+| :-- | --: | --: | --: | --: | --: |
+| CPU | 0.00% | 0.00% | 0.00% | **0.00%** | 1.1953 |
+| GPU | 0.31% | 2.64% | 5.30% | **27.90%** | 1.3203 |
+| NPU | 0.32% | 2.58% | 4.25% | **27.49%** | 1.3018 |
+
+(fp64 reference final max\|h\| = 1.1956.)
+
+**This is an FP16 problem, not an NPU problem.** The GPU drifts identically
+(27.90% vs 27.49%) because both run fp16. Only the CPU, which computes in fp32,
+is clean. The NPU's disadvantage is simply that it *cannot opt out* -- see 2.1,
+`DEVICE_GOPS float32 = 0.0`.
+
+Drift grows super-linearly: 0.32% -> 2.58% -> 4.25% -> 27.49%.
+
+### 14.2 Root cause, precisely located
+
+In the real layer, `A_bar` spans [0.0, 0.99999]. Nothing is exactly 1.0 in
+fp64 -- but **163 of 24,576 values (0.66%) round to exactly 1.0 in fp16**.
+Those channels become pure accumulators: `h = h + B*x`, no decay, forever.
+
+FP16 has an 11-bit mantissa, so an accumulator hits **absorption**: once \|h\|
+is large enough, small increments fall below half a ULP and are silently
+discarded.
+
+| \|h\| | fp16 ULP | increments below this are LOST |
+| --: | --: | --: |
+| 1 | 0.00098 | 0.00049 |
+| 64 | 0.06250 | 0.03125 |
+| 1024 | 1.00000 | 0.50000 |
+
+Measured directly on a pure accumulator channel: with increments ~N(0, 0.01),
+the first silently-absorbed update occurs at **step 630**.
+
+The remaining 86.9% of channels have `A_bar < 0.9`, decay within tens of steps,
+and self-correct. The drift is concentrated almost entirely in that 0.66%.
+
+### 14.3 Mitigations tested
+
+**fp32 state -- works, but is UNAVAILABLE on the NPU.** In numpy, keeping the
+state in fp32 while weights stay fp16 roughly halves the error (17.8% -> 9.26%
+at 65K in that harness). On device it does not survive: feeding a state whose
+detail sits below fp16 ULP and reading it back,
+
+| device | distinct sub-ULP values preserved (of 1,499) |
+| :-- | --: |
+| CPU | 1,385 |
+| GPU | 3 |
+| NPU | 3 |
+
+The tensor is declared fp32 and is quantised to fp16 internally regardless.
+
+**Clamping `A_bar` below 1.0 -- REFUTED.** The obvious fix is to clamp to the
+largest fp16 value under 1.0 (1 - 2^-11 = 0.99951) so no channel is an unbounded
+accumulator. Tested: it made things far worse (17.8% -> 93.9% at 65K).
+
+The reason is instructive. Those 163 near-1.0 channels are the model's
+**long-memory** channels -- clamping gives them a time constant of ~2048 steps
+and destroys exactly the capability that makes long context work. It is a model
+modification wearing the costume of a numerical fix.
+
+### 14.4 Verdict and what it changes
+
+**The "unbounded context at constant memory" pitch does not survive fp16 as
+formulated.** Revised, measured limits:
+
+| context | fp16 drift | usable? |
+| :-- | --: | :-- |
+| < 5K tokens | < 3% | yes |
+| ~10K tokens | ~4-5% | marginal |
+| 20K+ tokens | 27%+ | no |
+
+The *memory* claim is untouched -- state is still 1.12 MB at any length. It is
+the *fidelity* claim that breaks past roughly 10K tokens.
+
+Whether 4-5% state drift changes generated tokens is still unmeasured; it needs
+the full model with an LM head. Do not assume it is fatal, and do not assume it
+is fine.
+
+### 14.5 The idea this diagnosis produces
+
+The drift is concentrated in **163 identifiable channels out of 24,576**. They
+are known at weight-preparation time, before any inference runs.
+
+So: **split the recurrence by channel.** Run the 24,413 well-conditioned
+channels on the NPU in fp16, and the 163 accumulator channels on the CPU in
+fp32. The CPU share is 0.66% of the work -- arithmetically trivial, and the CPU
+was measured clean at 0.00% drift over 20K steps.
+
+This is untested. It is the most promising remaining route to long-context SSM
+on this NPU, it falls directly out of the failure analysis, and it is cheap to
+try. Two risks to check: the extra dispatch per token (the ~0.22 ms floor
+applies to the NPU half regardless), and whether splitting and recombining the
+state costs more than it saves.
+
+Alternatives if that fails: INT8 state with an explicit learned scale (the NPU
+supports INT8 natively, and a controlled scale may condition better than fp16's
+fixed exponent); periodic state recomputation from a checkpoint; or Mamba-2,
+whose scalar-per-head `A` parameterisation may be better conditioned than
+Mamba-1's per-channel diagonal.
