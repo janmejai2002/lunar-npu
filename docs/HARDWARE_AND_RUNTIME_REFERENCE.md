@@ -27,8 +27,13 @@ you rely on it.
 
 ## 1. The one fact that should drive every design decision
 
-> **[MEASURED] The NPU is the slowest of the three engines at every workload
-> size tested. It has a fixed ~0.22 ms dispatch floor. It never wins on latency.**
+> **[MEASURED] On dense fp16/fp32 graphs the NPU is the slowest of the three
+> engines at every size tested, with a fixed ~0.22 ms dispatch floor.**
+>
+> **CORRECTED 2026-09-12 -- see section 15.** That statement holds only for the
+> synthetic dense matmuls below, which are the NPU's weak path. On Intel's
+> pre-quantised INT8 production models the NPU BEATS the GPU by 1.15-1.46x,
+> consistently. Read section 15 before drawing any conclusion from this table.
 
 Median inference latency, dense `f32` MLP, batch 1, 30 iterations after warmup:
 
@@ -859,3 +864,176 @@ supports INT8 natively, and a controlled scale may condition better than fp16's
 fixed exponent); periodic state recomputation from a checkpoint; or Mamba-2,
 whose scalar-per-head `A` parameterisation may be better conditioned than
 Mamba-1's per-channel diagonal.
+
+---
+
+## 15. Real production models: where the NPU actually wins **[MEASURED 2026-09-12]**
+
+Sections 1 and 11-14 measured only dense f32/f16 matmul stacks. That is close to
+the worst possible workload for this silicon: no INT8 path, no hardware weight
+decompression, no convolution hardware. **Section 1's headline claim -- "the NPU
+never wins on latency" -- was measured on the NPU's weak path only and is wrong
+as stated.** This section replaces it with measurements on real production
+models.
+
+### 15.1 Five real models, five repeats each **[MEASURED]**
+
+Fresh compile and fresh infer request per repeat, median of 60 inferences each,
+seq len 64 where applicable. A ranking is only reported as trustworthy if the
+same device wins all five repeats.
+
+| model | precision | CPU | GPU | NPU | winner |
+| :-- | :-- | --: | --: | --: | :-- |
+| YOLO11n | int8 | 20.36 ms | 8.74 ms | **5.99 ms** | **NPU 5/5** |
+| BGE-base | int8 | 31.28 ms | 4.94 ms | **4.29 ms** | **NPU 5/5** |
+| Whisper-tiny encoder | fp16 | 244.75 ms | **8.49 ms** | 10.21 ms | GPU 5/5 |
+| MiniLM-L6 | fp16 | 21.79 ms | **1.25 ms** | 1.99 ms | GPU 5/5 |
+| MobileNetV3 | fp16 | 2.11 ms | 1.00 ms | 0.93 ms | **UNSTABLE** (GPU 3, NPU 2) |
+
+**The NPU beats the GPU by 1.46x on YOLO11n and 1.15x on BGE-base, consistently.**
+Against the CPU it is 3.4x and 7.3x faster respectively.
+
+Run-to-run variation (coefficient of variation across the five repeats):
+
+| model | CPU | GPU | NPU |
+| :-- | --: | --: | --: |
+| YOLO11n | 1.9% | 5.3% | 4.6% |
+| BGE-base | 2.8% | 1.5% | 4.1% |
+| Whisper enc | 1.4% | 3.1% | 3.5% |
+| MobileNetV3 | 8.0% | **56.7%** | 8.3% |
+| MiniLM-L6 | 2.2% | **25.3%** | 11.9% |
+
+MobileNetV3 is unstable because the **GPU** swings wildly on very small graphs
+(0.670-2.002 ms), not because of the NPU. Note also that on the two smallest
+models the NPU is the *more* consistent device.
+
+### 15.2 Is INT8 the cause? Partly, and the mechanism is NOT what it looks like
+
+Both NPU winners are INT8; all three losers are fp16. That correlation is clean
+but it is not proof, so it was tested directly.
+
+**Weight-only INT8 compression gives the NPU no speedup.** Compressing MiniLM,
+MobileNetV3 and Whisper with `nncf.compress_weights(INT8_SYM)` and re-running:
+
+| model | CPU speedup | GPU speedup | NPU speedup |
+| :-- | --: | --: | --: |
+| MiniLM-L6 | 1.97x | 0.44x | **0.91x** |
+| MobileNetV3 | 0.99x | 1.56x | **0.81x** |
+| Whisper enc | 1.35x | 0.88x | **1.04x** |
+
+The NPU got *slower* on two of three. Also note the accuracy cost: cosine
+similarity against the fp16 output was 0.754 for MiniLM and **0.0002 for
+MobileNetV3** -- weight-only compression destroyed that model outright. Do not
+apply it blindly.
+
+**The obvious explanation is wrong.** The natural theory is that Intel's models
+quantise *activations* too (FakeQuantize / QDQ nodes), which is what switches the
+DPU into INT8 mode. Checking the graphs:
+
+| model | FakeQuantize nodes | int8 constants | NPU result |
+| :-- | --: | --: | :-- |
+| YOLO11n | 101 | 88 | wins |
+| **BGE-base** | **0** | 150 | **wins** |
+| MiniLM fp16 | 0 | 0 | loses |
+| MiniLM compress_weights | 0 | 25 | loses |
+
+**BGE-base has zero FakeQuantize nodes** -- it is weight-only INT8, structurally
+the same as the compression that did not help MiniLM, and the NPU still wins on
+it. So quantised activations are not the explanation.
+
+**Full quantisation does not compile on this NPU.** Running a proper
+`nncf.quantize()` with a 64-sample calibration set on MiniLM produces 36
+FakeQuantize nodes and then fails:
+
+```
+[vpux-compiler] failed to legalize unresolved materialization from
+  'tensor<128x384x1x3xf16>' to 'tensor<...!quant.uniform<u8:f16,...>>'
+  at __module.transformer.layers.1.self_attn/aten::select/Gather/fq_input_0
+```
+
+**Practical rule: use Intel's pre-quantised INT8 models from the OpenVINO hub.
+Do not expect to successfully quantise your own for this NPU.**
+
+The most plausible remaining mechanism is weight *bandwidth*: BGE-base carries
+108.9M weight elements against MiniLM's 22.3M, so halving weight bytes matters
+far more for BGE. This is unproven and left open.
+
+### 15.3 Energy: the NPU loses, and this settles a claim made all session
+
+Sections 1, 5 and 11 all asserted that the NPU's real case is energy rather than
+latency, and told the reader to measure it. It had never been measured. It has
+now, on BGE-base int8 -- the workload where the NPU is the *fastest* device.
+
+Method: differential package power via Intel RAPL through Windows PDH. Idle
+measured before and after each busy window with a 25 s cooldown, three repeats
+per device, interleaved in randomised order.
+
+| device | energy per inference | latency | package delta |
+| :-- | --: | --: | --: |
+| **GPU** | **35.05 mJ** (+/- 1.01) | 4.022 ms | 8.7 W |
+| NPU | 51.00 mJ (+/- 2.20) | **3.942 ms** | 12.9 W |
+| CPU | 391.80 mJ (+/- 10.18) | 22.175 ms | 17.7 W |
+
+Idle was stable at ~11 W across all nine runs, so the deltas are well clear of
+the noise floor.
+
+**The NPU is marginally faster and 45% more expensive in energy than the GPU.**
+Both beat the CPU enormously (11x less energy, 5.6x faster).
+
+> A first attempt at this measurement was invalid and reported itself as such:
+> idle drifted 13.58-22.39 W between runs, a wider spread than the deltas being
+> measured, and the GPU produced a physically impossible negative energy because
+> its idle baseline was captured while the package was still hot. The cooldown,
+> pre/post idle averaging and interleaving exist to fix that. If you repeat this,
+> keep them.
+
+### 15.4 The NPU's real advantage: it barely touches the host CPU **[MEASURED]**
+
+The energy result prompted a hypothesis: perhaps the NPU submission path
+busy-waits on a CPU core, and that host cost was being charged to the NPU in the
+package rail.
+
+**The hypothesis was refuted, and the truth is the opposite.** Host CPU time
+consumed by this process per inference, same model, two repeats:
+
+| device | wall ms/inference | host CPU ms/inference | cores busy |
+| :-- | --: | --: | --: |
+| CPU | 22.63 | 69.37 | 3.18 |
+| GPU | 4.03 | 3.95 | **0.98** |
+| **NPU** | **3.78** | **0.40** | **0.11** |
+
+**The GPU driver burns a full CPU core (98%) to keep the GPU fed. The NPU uses
+11% of one -- roughly 10x less host CPU for the same work, delivered slightly
+faster.**
+
+This is the strongest pro-NPU result in this document, and it is the one thing
+the NPU does that neither other engine can:
+
+- Run inference continuously while leaving essentially the whole CPU free.
+- The GPU cannot make that claim. A "GPU offload" costs you a core.
+
+It also corrects section 14. The claim there that "you cannot reach the NPU
+without a CPU core" is too strong: inference needs only ~11% of a core. What
+genuinely requires host CPU is **compilation** (`vpux-compiler`,
+`COMPILATION_NUM_THREADS = 8`), which is why compiling failed under full
+saturation. Compile early, cache the blob, and the runtime cost is tiny.
+
+### 15.5 Corrected summary of where the NPU stands
+
+| axis | verdict | evidence |
+| :-- | :-- | :-- |
+| Latency, dense fp16/fp32 | **loses** to CPU and GPU | section 1 |
+| Latency, Intel INT8 models | **WINS** 1.15-1.46x vs GPU | 15.1, 5/5 stable |
+| Latency, fp16 real models | loses to GPU | 15.1, 5/5 stable |
+| Energy per inference | **loses** to GPU by 45% | 15.3 |
+| **Host CPU freed** | **WINS decisively, ~10x vs GPU** | 15.4 |
+| Foreground interference | better than GPU (+47.5% vs +123.8%) | 11.3 |
+| Latency variance, small models | better than GPU | 15.1 |
+| Quantising your own models | not viable, compiler fails | 15.2 |
+| Long SSM recurrence | fp16 drift caps useful context ~10K | section 14 |
+
+**The honest one-line case for this NPU: it runs Intel's pre-quantised INT8
+models slightly faster than the GPU while using a tenth of the host CPU, at a
+45% energy premium.** That is a real and narrow niche -- continuous background
+inference on a machine whose CPU you want to keep free -- and it is not the
+niche the project was built around.
