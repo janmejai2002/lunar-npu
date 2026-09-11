@@ -9,7 +9,7 @@
 ## 1. Hardware, Silicon & Runtime Environment
 
 ### Physical Hardware
-- **Processor:** Intel Core Ultra 7 258V (Lunar Lake platform, 8-core CPU, Xe2 GPU, on-package LPDDR5X-8533 memory).
+- **Processor:** Intel Core Ultra 7 256V (Lunar Lake platform, 8-core CPU, Xe2 GPU, on-package LPDDR5X-8533 memory).
 - **NPU Silicon:** Intel AI Boost NPU 4000 (Generation 4 NPU).
   - Compute Capacity: **47 TOPS INT8** (peak systolic matrix throughput).
   - Neural Compute Engine (NCE): **6 physical tiles**, each equipped with dedicated systolic MAC arrays and local SRAM scratchpads.

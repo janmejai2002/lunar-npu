@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>XL-Flow Architecture & Data Pipeline</title>
+  <style>
+    :root {
+      --paper: #F6F4EF;
+      --card: #EDE9E0;
+      --card-hover: #E5E0D5;
+      --border: #DCD4C7;
+      --ink: #1A2639;
+      --ink-soft: rgba(26, 38, 57, 0.72);
+      --ink-faint: rgba(26, 38, 57, 0.42);
+
+      --mizu: #00A9B8;
+      --moss: #6E8C63;
+      --ochre: #C2913A;
+      --hanko: #D2543F;
+      --plum: #8A6690;
+      --indigo: #4E6E9C;
+
+      --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --serif: 'Newsreader', Georgia, serif;
+      --mono: ui-monospace, 'SF Mono', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background-color: var(--paper);
+      color: var(--ink);
+      font-family: var(--font);
+      padding: 40px 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    .header-container {
+      max-width: 960px;
+      width: 100%;
+      margin-bottom: 32px;
+      text-align: center;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 9999px;
+      background: rgba(0, 169, 184, 0.12);
+      color: var(--mizu);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      font-family: var(--serif);
+      font-size: 32px;
+      font-weight: 600;
+      color: var(--ink);
+      margin-bottom: 8px;
+    }
+
+    p.subtitle {
+      color: var(--ink-soft);
+      font-size: 15px;
+      max-width: 600px;
+      margin: 0 auto;
+      line-height: 1.5;
+    }
+
+    .diagram-wrapper {
+      max-width: 960px;
+      width: 100%;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px;
+      box-shadow: 0 4px 20px rgba(26, 38, 57, 0.06);
+    }
+
+    svg {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    .legend-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 20px;
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--ink-soft);
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header-container">
+    <span class="badge">Architecture Schematic</span>
+    <h1>XL-Flow: Manifest V3 System Topology</h1>
+    <p class="subtitle">Zero-touch browser token interception, background synchronization pipeline, and client-side predictive attendance engine.</p>
+  </div>
+
+  <div class="diagram-wrapper">
+    <svg viewBox="0 0 900 560" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- Background Grid -->
+      <defs>
+        <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+          <circle cx="2" cy="2" r="1" fill="#DCD4C7" opacity="0.6"/>
+        </pattern>
+        <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 8 5 L 0 9 z" fill="#1A2639" opacity="0.6"/>
+        </marker>
+        <marker id="arrow-blue" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 8 5 L 0 9 z" fill="#00A9B8"/>
+        </marker>
+        <marker id="arrow-green" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 8 5 L 0 9 z" fill="#6E8C63"/>
+        </marker>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#grid)" opacity="0.4"/>
+
+      <!-- SECTION 1: XLRI ERP HOST (TOP LEFT) -->
+      <g id="host-portal">
+        <rect x="40" y="40" width="260" height="150" rx="12" fill="#F6F4EF" stroke="#4E6E9C" stroke-width="1.5" stroke-dasharray="4 4"/>
+        <rect x="52" y="52" width="130" height="22" rx="4" fill="rgba(78, 110, 156, 0.12)"/>
+        <text x="58" y="67" font-family="Inter" font-size="11" font-weight="700" fill="#4E6E9C">XLRI ERP PORTAL</text>
+        <text x="52" y="94" font-family="Inter" font-size="13" font-weight="600" fill="#1A2639">xlerp.xlri.ac.in</text>
+        <text x="52" y="112" font-family="Inter" font-size="11" fill="rgba(26, 38, 57, 0.72)">React + Vite Single Page App</text>
+        
+        <!-- Token storage box -->
+        <rect x="52" y="128" width="236" height="46" rx="6" fill="#EDE9E0" stroke="#DCD4C7"/>
+        <text x="64" y="146" font-family="monospace" font-size="11" font-weight="600" fill="#1A2639">localStorage: 'erp_token'</text>
+        <text x="64" y="162" font-family="Inter" font-size="10" fill="rgba(26, 38, 57, 0.5)">Student Bearer JWT (Zero-Touch)</text>
+      </g>
+
+      <!-- SECTION 2: CONTENT SCRIPT (MIDDLE LEFT) -->
+      <g id="content-script">
+        <rect x="40" y="240" width="260" height="130" rx="12" fill="#F6F4EF" stroke="#00A9B8" stroke-width="1.5"/>
+        <rect x="52" y="252" width="120" height="22" rx="4" fill="rgba(0, 169, 184, 0.12)"/>
+        <text x="58" y="267" font-family="Inter" font-size="11" font-weight="700" fill="#00A9B8">CONTENT SCRIPT</text>
+        <text x="52" y="294" font-family="Inter" font-size="13" font-weight="600" fill="#1A2639">Token Bridge &amp; HUD</text>
+        
+        <rect x="52" y="306" width="236" height="50" rx="6" fill="#EDE9E0" stroke="#DCD4C7"/>
+        <text x="64" y="324" font-family="Inter" font-size="10.5" fill="#1A2639">• Passive Token Interception</text>
+        <text x="64" y="342" font-family="Inter" font-size="10.5" fill="#1A2639">• In-Page Floating Quick HUD</text>
+      </g>
+
+      <!-- SECTION 3: BACKGROUND SERVICE WORKER (TOP RIGHT) -->
+      <g id="service-worker">
+        <rect x="360" y="40" width="260" height="230" rx="12" fill="#F6F4EF" stroke="#1A2639" stroke-width="1.5"/>
+        <rect x="372" y="52" width="150" height="22" rx="4" fill="rgba(26, 38, 57, 0.08)"/>
+        <text x="378" y="67" font-family="Inter" font-size="11" font-weight="700" fill="#1A2639">BACKGROUND WORKER</text>
+        <text x="372" y="94" font-family="Inter" font-size="13" font-weight="600" fill="#1A2639">Event-Driven Orchestrator</text>
+        
+        <rect x="372" y="108" width="236" height="146" rx="6" fill="#EDE9E0" stroke="#DCD4C7"/>
+        <text x="384" y="126" font-family="Inter" font-size="11" font-weight="600" fill="#1A2639">Alarms &amp; Pipelines:</text>
+        <text x="384" y="144" font-family="Inter" font-size="10.5" fill="rgba(26, 38, 57, 0.72)">• SYNC_ALARM (Periodic 30m)</text>
+        <text x="384" y="162" font-family="Inter" font-size="10.5" fill="rgba(26, 38, 57, 0.72)">• Direct API Client (/api/v1)</text>
+        <text x="384" y="180" font-family="Inter" font-size="10.5" fill="rgba(26, 38, 57, 0.72)">• 15-Min Pre-Class Alarms</text>
+        <text x="384" y="198" font-family="Inter" font-size="10.5" fill="rgba(26, 38, 57, 0.72)">• Room Mutation Diffing</text>
+        <text x="384" y="216" font-family="Inter" font-size="10.5" fill="#6E8C63" font-weight="600">✓ Zero External Cloud Relay</text>
+      </g>
+
+      <!-- SECTION 4: LOCAL CACHE ENGINE (MIDDLE RIGHT) -->
+      <g id="storage-engine">
+        <rect x="360" y="310" width="260" height="190" rx="12" fill="#F6F4EF" stroke="#6E8C63" stroke-width="1.5"/>
+        <rect x="372" y="322" width="165" height="22" rx="4" fill="rgba(110, 140, 99, 0.12)"/>
+        <text x="378" y="337" font-family="Inter" font-size="11" font-weight="700" fill="#6E8C63">CHROME.STORAGE.LOCAL</text>
+        <text x="372" y="364" font-family="Inter" font-size="13" font-weight="600" fill="#1A2639">Air-Gapped Offline Cache</text>
+        
+        <rect x="372" y="378" width="236" height="106" rx="6" fill="#EDE9E0" stroke="#DCD4C7"/>
+        <text x="384" y="398" font-family="monospace" font-size="10.5" fill="#1A2639">courses: [{id, name, ...}]</text>
+        <text x="384" y="416" font-family="monospace" font-size="10.5" fill="#1A2639">schedule: [35 Sessions]</text>
+        <text x="384" y="434" font-family="monospace" font-size="10.5" fill="#1A2639">attendance: {OMCR: 90.5%}</text>
+        <text x="384" y="452" font-family="monospace" font-size="10.5" fill="#1A2639">deadlines: [Quizzes, Cases]</text>
+        <text x="384" y="470" font-family="Inter" font-size="9.5" fill="rgba(26, 38, 57, 0.5)">&lt;200 KB footprint · 0% cloud leaks</text>
+      </g>
+
+      <!-- SECTION 5: POPUP / SIDE PANEL UI (FAR RIGHT) -->
+      <g id="popup-ui">
+        <rect x="660" y="40" width="200" height="460" rx="12" fill="#F6F4EF" stroke="#C2913A" stroke-width="1.5"/>
+        <rect x="672" y="52" width="130" height="22" rx="4" fill="rgba(194, 145, 58, 0.12)"/>
+        <text x="678" y="67" font-family="Inter" font-size="11" font-weight="700" fill="#C2913A">POPUP / SIDE PANEL</text>
+        <text x="672" y="94" font-family="Inter" font-size="13" font-weight="600" fill="#1A2639">wAIbi-sabi UI (380px)</text>
+
+        <!-- View Cards -->
+        <rect x="672" y="108" width="176" height="74" rx="6" fill="#EDE9E0" stroke="#00A9B8"/>
+        <text x="682" y="126" font-family="Inter" font-size="11" font-weight="700" fill="#00A9B8">1. Today's Radar</text>
+        <text x="682" y="142" font-family="Inter" font-size="9.5" fill="#1A2639">Next: OMCR in 42 mins</text>
+        <text x="682" y="156" font-family="monospace" font-size="9.5" fill="#1A2639">Venue: [📍 MCR 07 | 📋]</text>
+        <text x="682" y="170" font-family="Inter" font-size="9" fill="rgba(26, 38, 57, 0.5)">Click-to-copy room code</text>
+
+        <rect x="672" y="192" width="176" height="74" rx="6" fill="#EDE9E0" stroke="#6E8C63"/>
+        <text x="682" y="210" font-family="Inter" font-size="11" font-weight="700" fill="#6E8C63">2. Bunk-O-Meter</text>
+        <text x="682" y="226" font-family="Inter" font-size="9.5" fill="#1A2639">80% Statutory Math</text>
+        <text x="682" y="240" font-family="Inter" font-size="9.5" fill="#6E8C63" font-weight="600">+3 Safe Bunks Remaining</text>
+        <text x="682" y="254" font-family="Inter" font-size="9" fill="rgba(26, 38, 57, 0.5)">Predictive risk tiering</text>
+
+        <rect x="672" y="276" width="176" height="74" rx="6" fill="#EDE9E0" stroke="#4E6E9C"/>
+        <text x="682" y="294" font-family="Inter" font-size="11" font-weight="700" fill="#4E6E9C">3. Calendar Sync</text>
+        <text x="682" y="310" font-family="Inter" font-size="9.5" fill="#1A2639">1-Click Google Calendar</text>
+        <text x="682" y="324" font-family="Inter" font-size="9.5" fill="#1A2639">RFC 5545 .ics generator</text>
+        <text x="682" y="338" font-family="Inter" font-size="9" fill="rgba(26, 38, 57, 0.5)">Asia/Kolkata IST stamps</text>
+
+        <rect x="672" y="360" width="176" height="74" rx="6" fill="#EDE9E0" stroke="#D2543F"/>
+        <text x="682" y="378" font-family="Inter" font-size="11" font-weight="700" fill="#D2543F">4. Quiz &amp; Task Radar</text>
+        <text x="682" y="394" font-family="Inter" font-size="9.5" fill="#1A2639">Aggregated Deadlines</text>
+        <text x="682" y="408" font-family="Inter" font-size="9.5" fill="#D2543F" font-weight="600">DMD Quiz 1 Due Soon</text>
+        <text x="682" y="422" font-family="Inter" font-size="9" fill="rgba(26, 38, 57, 0.5)">Urgency-colored pills</text>
+
+        <text x="672" y="460" font-family="Inter" font-size="10" font-weight="600" fill="#6E8C63">⚡ Sub-10ms Instant Paint</text>
+        <text x="672" y="475" font-family="Inter" font-size="9" fill="rgba(26, 38, 57, 0.5)">Stale-While-Revalidate</text>
+      </g>
+
+      <!-- CONNECTION FLOW ARROWS -->
+      <!-- 1. Host to Content Script -->
+      <path d="M 170 190 L 170 236" stroke="#00A9B8" stroke-width="2" marker-end="url(#arrow-blue)"/>
+      <text x="178" y="218" font-family="Inter" font-size="9.5" font-weight="600" fill="#00A9B8">Passively reads JWT</text>
+
+      <!-- 2. Content Script to Background Worker -->
+      <path d="M 300 280 L 330 280 L 330 150 L 356 150" stroke="#1A2639" stroke-width="1.5" marker-end="url(#arrow)" fill="none"/>
+      <text x="260" y="210" font-family="Inter" font-size="9" fill="rgba(26, 38, 57, 0.72)">Runtime Message</text>
+
+      <!-- 3. Background Worker to ERP API -->
+      <path d="M 400 40 L 400 16 L 170 16 L 170 36" stroke="#4E6E9C" stroke-width="1.5" stroke-dasharray="3 3" marker-end="url(#arrow)" fill="none"/>
+      <text x="240" y="28" font-family="Inter" font-size="9.5" font-weight="600" fill="#4E6E9C">GET /api/v1 (Bearer)</text>
+
+      <!-- 4. Background Worker to Storage -->
+      <path d="M 490 270 L 490 306" stroke="#6E8C63" stroke-width="2" marker-end="url(#arrow-green)"/>
+      <text x="498" y="292" font-family="Inter" font-size="9.5" font-weight="600" fill="#6E8C63">Atomic Writes</text>
+
+      <!-- 5. Storage to Popup UI -->
+      <path d="M 620 405 L 656 405" stroke="#1A2639" stroke-width="2" marker-end="url(#arrow)"/>
+      <text x="622" y="395" font-family="Inter" font-size="9.5" font-weight="600" fill="#1A2639">Instant Read</text>
+    </svg>
+
+    <div class="legend-container">
+      <div class="legend-item">
+        <div class="legend-dot" style="background: #4E6E9C;"></div>
+        <span>XLRI Origin Scope</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background: #00A9B8;"></div>
+        <span>Content Ingestion Layer</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background: #1A2639;"></div>
+        <span>Service Worker Runtime</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background: #6E8C63;"></div>
+        <span>Encrypted Local Cache</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background: #C2913A;"></div>
+        <span>wAIbi-sabi Popup Views</span>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
