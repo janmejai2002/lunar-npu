@@ -1614,3 +1614,97 @@ Remaining options for the densifier, in order of promise:
    applied first -- `nomic-embed-text-v1.5` int8 is the next candidate.
 3. Accept the GPU for embedding (0.56 s whole-repo, but a full CPU core) and
    drop the NPU from this design.
+
+---
+
+## 22. The densifier works -- and the problem was never the model **[MEASURED 2026-09-12]**
+
+20.3 measured code retrieval at 2/6 with BGE-base and blamed the model, naming a
+stronger embedder as the fix. 21 then found that stronger embedder
+(Qwen3-Embedding) numerically destroyed on the NPU. This section tested the
+*other* hypothesis from 20.3 -- the chunking -- and that was the real cause.
+
+### 22.1 The actual model inventory
+
+The OpenVINO org publishes exactly two embedding families and two reranker
+families. Enumerated via the HF API rather than assumed:
+
+| model | downloads | NPU status |
+| :-- | --: | :-- |
+| Qwen3-Embedding-0.6B int8 / fp16 / int4-cw | 781 / 741 / 509 | **numerically broken** (21) |
+| bge-base-en-v1.5 fp16 / int8 | 393 / 251 | **works** |
+| bge-reranker-base int8 / fp16 | 224 / 38 | **works** (22.2) |
+| Qwen3-Reranker-0.6B fp16 / int8 / seq-cls | 112 / 81 / 88 | untested |
+
+`nomic-embed-text-v1.5` has **no** OpenVINO build and **cannot be exported** --
+`optimum-intel` refuses `nomic_bert` as a custom architecture without a custom
+export config. The earlier suggestion in 21.3 to try it is withdrawn.
+
+### 22.2 The reranker passes the gate
+
+A reranker is a stronger tool than an embedder: it sees the (query, document)
+pair together through cross-attention rather than embedding each side
+independently, which is exactly the signal cosine similarity discards.
+
+Applying the 21.2 gate to `bge-reranker-base-int8-ov`:
+
+| device | relevant pair | irrelevant pair | margin |
+| :-- | --: | --: | --: |
+| CPU | -1.26 | -10.20 | **+8.951** |
+| NPU | -1.26 | -10.20 | **+8.937** |
+
+Margins agree to within 0.2%. **The reranker is numerically sound on the NPU.**
+Compile took 33.5 s.
+
+### 22.3 The real fix was AST chunking
+
+Same model (BGE-base), same six queries, same NPU. Only the chunking changed --
+from fixed 30-line windows to one chunk per function or class, each prefixed with
+its module path, kind, name and first docstring line:
+
+| configuration | result |
+| :-- | :-- |
+| BGE + fixed 30-line windows (20.3) | **2 / 6** |
+| BGE + AST chunks, header-prefixed | **6 / 6** |
+| BGE + AST chunks + reranker on top 24 | **5 / 6** |
+
+**Chunking, not the model, was the problem.** Cutting functions in half destroys
+the thing an embedder is trying to represent. Give it a coherent unit with its
+name attached and a 110M-parameter prose embedder retrieves code fine.
+
+The reranker made it slightly *worse*. At 658 chunks the embeddings are already
+good enough that a second stage only adds a chance to demote the right answer --
+it demoted the correct hit on "how is the NPU device selected and model
+compiled". Two-stage retrieval earns its keep at corpus sizes where stage 1 is
+genuinely noisy, not here.
+
+### 22.4 Honest limits of this result
+
+- **Six queries is a smoke test, not a benchmark.** The queries and their
+  expected modules were both chosen here.
+- **The keyword match is loose.** "engine" matches `engine.py`, and for
+  "where are dangerous shell commands blocked?" all three top hits were *test
+  functions* rather than `circuit_breaker.audit_command` itself. Counted as a
+  hit by the check, but in practice a developer wants the implementation. Ranking
+  implementation above tests is unsolved.
+- 658 AST chunks is a small corpus.
+
+### 22.5 Status of the densifier
+
+Every component is now measured rather than assumed:
+
+| requirement | status |
+| :-- | :-- |
+| NPU beats GPU on the embedding workload | 5/5 (15.1) |
+| Costs almost no host CPU | 0.04 cores (20.1) |
+| Incremental update free | 29.8 ms/file, 6% duty (20.2) |
+| Embedder numerically sound on NPU | verified, BGE-base (21.3) |
+| Reranker numerically sound on NPU | verified, +8.94 margin (22.2) |
+| AST chunking | already in `lunar_core/indexer.py` |
+| MCP transport to agents | already in `lunar_core/mcp_server.py` |
+| **Retrieval quality** | **6/6 smoke test (22.3)** |
+
+The open row from 20.5 is closed. What remains is engineering, not research:
+wire `indexer.py` to emit AST chunks with headers, index on a file watcher, and
+expose a `find_code` tool over the existing MCP server. Rank implementation above
+tests before shipping it.
