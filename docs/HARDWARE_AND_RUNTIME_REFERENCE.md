@@ -1115,3 +1115,82 @@ Remaining caveats unchanged from 13.5 -- this is still an SSM kernel and not a
 language model. B and C are fabricated rather than loaded, there is no
 embedding, LM head or projection stack, and prefill still needs the chunked
 scan. The numerical blocker is cleared; the model-building work is not.
+
+---
+
+## 17. What the "47 TOPS" number is actually worth **[MEASURED 2026-09-12]**
+
+The driver reports `DEVICE_GOPS int8 = 46,694`, and that is the number on the
+box. It is a theoretical peak: `6 tiles * 1024 MAC/cycle * 2 OP/MAC * ~1.9 GHz`
+at 100% systolic utilisation. This section measures how much of it is reachable.
+
+### 17.1 Method
+
+Build workloads deliberately shaped to saturate the array -- large convolution
+stacks with high channel counts and large batches, which is the workload class
+NPUs exist for -- and compute achieved FLOP/s from known FLOP counts.
+`PERFORMANCE_HINT: THROUGHPUT`. Conv FLOPs = `2*K*K*Cin*Cout*Hout*Wout*batch`.
+
+### 17.2 Results
+
+| workload | GFLOP | NPU TFLOP/s | % of NPU peak | GPU TFLOP/s | % of GPU peak |
+| :-- | --: | --: | --: | --: | --: |
+| b1 C64 56x56 x8 | 1.8 | 2.11 | 9.1% | 2.21 | 6.9% |
+| b1 C128 56x56 x8 | 7.4 | 2.39 | 10.2% | 3.63 | 11.4% |
+| b8 C128 56x56 x8 | 59.2 | 3.17 | 13.6% | 7.80 | 24.4% |
+| b16 C128 56x56 x8 | 118.4 | 2.79 | 12.0% | 8.10 | 25.3% |
+| **b16 C256 28x28 x12** | 177.6 | **5.05** | **21.6%** | **13.47** | **42.2%** |
+| b32 C256 28x28 x12 | 355.1 | 5.02 | 21.5% | 12.69 | 39.7% |
+| b256 N4096 matmul x8 | 68.7 | 3.23 | 13.8% | 5.65 | 17.7% |
+
+### 17.3 Verdict
+
+**Best achieved on the NPU: 5.05 TFLOP/s fp16 -- 21.6% of its own 23.35 TFLOP/s
+fp16 peak.** Utilisation rises with workload size and then plateaus around 21%.
+
+**The GPU reaches 42.2% of its peak -- roughly twice the utilisation efficiency.**
+
+Stating this fairly, because the comparison is easy to abuse:
+
+- These are **fp16** measurements. The 46.69 TOPS headline is an **INT8** figure.
+  If INT8 scaled perfectly (2x), the NPU would reach roughly **10 TOPS INT8, or
+  about 21% of the advertised number**. Constructing a truly INT8-saturating
+  graph by hand was not attempted; 15.2 shows the quantisation toolchain does not
+  cooperate on this device anyway.
+- 21% of peak is **not scandalous in itself**. Real hardware rarely hits peak.
+  What matters is the *comparison*: the GPU on the same machine, with the same
+  compiler stack, reaches double the fraction of its own peak.
+- The peak number assumes every MAC unit busy every cycle with zero memory
+  stalls. Section 11.2 showed this SoC is memory-bandwidth-bound for real work,
+  and all three engines share one 136 GB/s LPDDR5X bus.
+
+**So the headline 47 TOPS should be read as a dimensional ceiling, not a
+capability.** About a fifth of it is reachable on workloads designed to be
+favourable, and the workloads people actually run -- batch-1 LLM decode -- are
+bandwidth-bound, where TOPS is the wrong unit entirely.
+
+### 17.4 Independent corroboration
+
+This is not a contrarian local finding; it matches the public record as of
+September 2026:
+
+- Intel's own **NPU Acceleration Library is archived and end-of-life**,
+  redirecting developers to OpenVINO GenAI.
+- Published measurements of Llama-3.2-1B Q4_K_M on a Lunar Lake NPU report
+  **2.07 tokens/s, slower than the CPU** on the same model class -- consistent
+  with 11.2 here.
+- The general industry critique is that TOPS does not predict LLM speed at all,
+  because token generation is bounded by memory bandwidth and capacity rather
+  than compute, and that headline figures often sum CPU + GPU + NPU.
+
+### 17.5 One actionable lead
+
+OpenVINO 2026.2 documentation recommends **`transformers==4.51.3`** for
+generating models targeted at the Intel NPU, with newer versions supported only
+in later releases. This machine has **transformers 4.57.6**.
+
+That is a plausible cause of the LLM export failures in 11.1 -- both the dynamic
+shape error and the "Found 80 duplicated names" compiler failure could come from
+an export produced by an unsupported Transformers version. Worth testing in an
+isolated virtual environment before concluding that LLM-on-NPU is unavailable
+here. Do not downgrade the main environment; other work depends on 4.57.6.
