@@ -183,6 +183,39 @@ def run_full_benchmark() -> Dict[str, Any]:
     return report
 
 
+def _fmt(d, key, spec="", unit=""):
+    """
+    Render a measured value, or an explicit MISSING marker.
+
+    Every field in this report used to carry a hardcoded fallback --
+    hw.get("int8_tops", 47.0), spec.get("effective_speedup", 2.78),
+    cb.get("scans_per_sec", 80000) -- and every row was stamped
+    ":white_check_mark: Verified" unconditionally. The report therefore rendered
+    identically whether or not the benchmark had run, which made it worthless as
+    evidence and actively misleading as a claim. A missing measurement now shows
+    as MISSING rather than as a plausible number.
+    """
+    v = d.get(key)
+    if v is None:
+        return "**MISSING** (not measured)"
+    try:
+        return f"**{format(v, spec)}{unit}**" if spec else f"**{v}{unit}**"
+    except (TypeError, ValueError):
+        return f"**{v}{unit}**"
+
+
+def _verdict(d, key, target, better="lower"):
+    """Compare a measured value against its target. No measurement, no verdict."""
+    v = d.get(key)
+    if v is None or target is None:
+        return "not measured"
+    try:
+        ok = (v <= target) if better == "lower" else (v >= target)
+    except TypeError:
+        return "not comparable"
+    return "PASS" if ok else "FAIL"
+
+
 def generate_markdown_report(report: Dict[str, Any]) -> str:
     hw = report["hardware"]
     mamba = report["mamba_ssm"].get("steps_100", {})
@@ -190,32 +223,50 @@ def generate_markdown_report(report: Dict[str, Any]) -> str:
     spec = report["speculative_pipeline"]
     cb = report["circuit_breaker"]
 
-    md = f"""# Lunar NPU Hardware Benchmark Report
+    rows = [
+        ("Mamba SSM", "Step latency", mamba, "mean_step_latency_ms", ".3f", " ms", 0.5, "lower"),
+        ("Mamba SSM", "Generation throughput", mamba, "tokens_per_second", ",.0f", " tok/s", 2000, "higher"),
+        ("Vector memory", "Search latency", vmem, "mean_search_latency_ms", ".3f", " ms", 2.0, "lower"),
+        ("Speculative", "Draft acceptance rate", spec, "mean_acceptance_rate", ".3f", "", 0.7, "higher"),
+        ("Speculative", "Effective decode speedup", spec, "effective_speedup", ".4f", "x", 1.0, "higher"),
+        ("Command guard", "Audit latency", cb, "mean_latency_us", ".2f", " us", 50.0, "lower"),
+        ("Command guard", "Scan throughput", cb, "scans_per_sec", ",.0f", " scans/s", 20000, "higher"),
+    ]
+
+    table = "\n".join(
+        f"| **{sub}** | {metric} | {_fmt(src, key, spec_, unit)} | "
+        f"{target} | {_verdict(src, key, target, better)} |"
+        for sub, metric, src, key, spec_, unit, target, better in rows
+    )
+
+    md = f"""# Lunar NPU Benchmark Report
 
 - **Timestamp**: `{report['timestamp']}`
 - **Host OS**: `{report['platform']['os']}` (Python `{report['platform']['python_version']}`)
-- **Target Processor**: `{hw.get('full_name', 'Intel AI Boost')}`
-- **Physical Compute Engine**: `{hw.get('tiles', 6)} NCE Tiles` | `{hw.get('int8_tops', 47.0)} TOPS INT8`
-- **Driver Version**: `{hw.get('driver_version', 'Unknown')}`
+- **Target processor**: `{hw.get('full_name', 'UNKNOWN')}`
+- **Tiles reported by driver**: `{hw.get('tiles', 'MISSING')}`
+- **Driver peak INT8**: `{hw.get('int8_tops', 'MISSING')} TOPS` -- this is the
+  driver's theoretical maximum, not a measurement of this code.
+- **Driver version**: `{hw.get('driver_version', 'MISSING')}`
 
----
+## Measurements
 
-## Empirical Benchmark Atlas
-
-| Subsystem | Metric | Measured Value | Theoretical Target | Status |
+| Subsystem | Metric | Measured | Target | Result |
 | :--- | :--- | :--- | :--- | :--- |
-| **Intel NPU Core** | INT8 Peak Throughput | **{hw.get('int8_tops', 47.0)} TOPS** | 47.0 TOPS | :white_check_mark: Verified |
-| **Mamba SSM Recurrence** | Step Latency ($h_t$) | **{mamba.get('mean_step_latency_ms', 0.196):.3f} ms** | < 0.500 ms | :white_check_mark: Exceeded |
-| **Mamba SSM Recurrence** | Generation Throughput | **{mamba.get('tokens_per_second', 5099):,.0f} tok/s** | > 2,000 tok/s | :white_check_mark: Exceeded |
-| **Vector Memory (S^383)** | Hypersphere Search Latency | **{vmem.get('mean_search_latency_ms', 0.150):.3f} ms** | < 2.000 ms | :white_check_mark: Exceeded |
-| **Speculative Pipeline** | Draft Acceptance Rate ($\\alpha$) | **{spec.get('mean_acceptance_rate', 0.80) * 100:.1f}%** | > 70.0% | :white_check_mark: Verified |
-| **Speculative Pipeline** | Effective Decode Speedup | **{spec.get('effective_speedup', 2.78):.2f}x** | > 2.00x | :white_check_mark: Exceeded |
-| **Silicon Circuit Breaker** | DFA Gatekeeper Latency | **{cb.get('mean_latency_us', 12.5):.2f} µs** | < 50.0 µs | :white_check_mark: Exceeded |
-| **Silicon Circuit Breaker** | Security Scan Throughput | **{cb.get('scans_per_sec', 80000):,} scans/s** | > 20,000 scans/s | :white_check_mark: Exceeded |
+{table}
 
----
+Targets are design goals, not achievements. A `MISSING` row means that benchmark
+did not run; it is not a zero and not a pass. Latency figures are medians over
+the iteration count in the JSON output.
 
-*Generated deterministically on physical silicon using `lunar-core v1.0.0`.*
+## What this report does not tell you
+
+- Peak TOPS is read from the driver, not measured here.
+- Speculative decoding currently uses an untrained draft model, so a speedup
+  below 1.0x is the expected result rather than a regression.
+- Nothing here measures energy. On this hardware the accelerator's advantage is
+  perf-per-watt, not latency, so a latency table is the wrong axis for
+  device-placement decisions. See docs/HARDWARE_AND_RUNTIME_REFERENCE.md.
 """
     return md
 
