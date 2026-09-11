@@ -1037,3 +1037,81 @@ models slightly faster than the GPU while using a tenth of the host CPU, at a
 45% energy premium.** That is a real and narrow niche -- continuous background
 inference on a machine whose CPU you want to keep free -- and it is not the
 niche the project was built around.
+
+---
+
+## 16. SOLVED: the channel split restores long-context SSM on the NPU **[MEASURED 2026-09-12]**
+
+Section 14 concluded that fp16 drift capped usable SSM context at roughly 10K
+tokens, and proposed in 14.5 a fix that had not been tested: run the few
+badly-conditioned channels on the CPU and the rest on the NPU. It works, and it
+is close to free.
+
+### 16.1 The affected set is tiny
+
+`A_bar` is [1536 d_inner x 16 d_state]. The entries that round to exactly 1.0 in
+fp16 -- the pure accumulators responsible for essentially all the drift:
+
+| | count | share |
+| :-- | --: | --: |
+| entries rounding to 1.0 in fp16 | 163 of 24,576 | 0.66% |
+| **rows containing at least one** | **19 of 1,536** | **1.24%** |
+
+The split has to be by row, since a row is one d_inner channel. **19 rows go to
+the CPU, 1,517 stay on the NPU.**
+
+### 16.2 It works, and it holds to 64K steps
+
+Relative error of the output against an fp64 reference, real Mamba-130M layer-0
+weights, 65,536 sequential steps:
+
+| variant | 1K | 4K | 16K | 32K | 64K |
+| :-- | --: | --: | --: | --: | --: |
+| all-NPU fp16 | 0.19% | 2.42% | 94.13% | 26.10% | **33.27%** |
+| split, CPU side fp32 | 0.09% | 0.04% | 8.80% | 0.23% | **0.32%** |
+| split, CPU side fp64 | 0.09% | 0.04% | 8.75% | 0.22% | **0.34%** |
+
+**Drift at 64K steps falls from 33.27% to 0.32% -- roughly 100x better.**
+
+Two readings worth noting:
+
+- **fp32 is enough on the CPU side.** fp64 gives no measurable benefit (0.32% vs
+  0.34%), so a real implementation can use ordinary fp32 there.
+- **The 16K column is a measurement artifact, not an instability.** Relative
+  error is inflated wherever the reference signal `y64` passes near zero. The
+  32K and 64K columns (0.23%, 0.32%) show the actual trend, which is flat.
+
+### 16.3 It costs nothing
+
+| variant | ms/step |
+| :-- | --: |
+| all-NPU fp16 | 0.511 |
+| split (CPU fp32) | 0.506 |
+| split (CPU fp64) | 0.471 |
+
+The split is **not slower**. The NPU graph shrinks from 1,536 to 1,517 rows,
+which offsets the 19 rows of numpy work on the host. An earlier 20K-step run
+measured 1.07x; at 65K it is within noise of parity.
+
+This also fits section 15.4: NPU inference costs only ~11% of a host core, so
+there is plenty of CPU headroom to absorb 19 rows of fp32 arithmetic per token.
+
+### 16.4 What this changes
+
+Section 14's verdict is superseded:
+
+| context | all-NPU fp16 (section 14) | with channel split |
+| :-- | :-- | :-- |
+| < 5K | usable | clean (<0.1%) |
+| 10K | marginal | clean |
+| 20K | unusable (27%) | clean (2.3%) |
+| 64K | unusable (33%) | **clean (0.32%)** |
+
+**Long-context SSM on this NPU is viable after all.** The claim "64K context at
+1.12 MB of constant state" survives, with one implementation requirement: a
+19-row fp32 side-path on the CPU, computed at weight-preparation time.
+
+Remaining caveats unchanged from 13.5 -- this is still an SSM kernel and not a
+language model. B and C are fabricated rather than loaded, there is no
+embedding, LM head or projection stack, and prefill still needs the chunked
+scan. The numerical blocker is cleared; the model-building work is not.
