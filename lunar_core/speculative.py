@@ -298,8 +298,16 @@ class LunarSpeculativePipeline:
             "draft_latency_ms": round(t_draft, 4),
             "verify_latency_ms": round(t_verify, 4),
             "total_latency_ms": round(total_latency, 4),
-            "speedup_factor": round(max(speedup, 1.0), 2),
-            "speedup": round(max(speedup, 1.0), 2),
+            "baseline_latency_ms": round(baseline_latency, 4),
+            # NOT clamped. A value < 1.0 means speculation LOST to plain
+            # decoding, which is the expected result while the draft model is
+            # untrained (see build_draft_model_openvino). Clamping this with
+            # max(x, 1.0) previously made a slowdown structurally unreportable.
+            # 6 dp: values are currently ~0.002, so coarse rounding destroyed
+            # them (2 dp turned 0.0121 into 0.01).
+            "speedup_factor": round(speedup, 6),
+            "speedup": round(speedup, 6),
+            "draft_model_trained": False,
             "draft_engine": self.draft_engine.device,
             "target_engine": target_engine_desc,
             "is_real_target": is_real_target,

@@ -1,6 +1,6 @@
 /**
  * Lunar Studio HUD — 2026 Sovereign Command Deck Client Controller
- * Intel Lunar Lake Core Ultra 7 258V / NPU 4000 (47 TOPS INT8)
+ * Intel Lunar Lake Core Ultra 7 256V / NPU 4000 (47 TOPS INT8)
  * Pure vanilla ES6+, zero external build steps, 60fps canvas rendering.
  */
 
@@ -1064,7 +1064,10 @@
       const data = await res.json();
       const box = document.getElementById('lora-output-box');
       if (box) {
-        box.textContent = `Training Step: ${data.steps} steps in ${data.mean_step_latency_ms}ms/step • Throughput: ${data.throughput_tokens_per_sec} tok/s • Loss: ${data.initial_loss} -> ${data.final_loss} (-${data.loss_reduction_pct}%) • Status: CONVERGED`;
+        // Report the backend's actual `converged` flag. This previously
+        // printed "Status: CONVERGED" unconditionally, even on a run where
+        // the loss went up.
+        box.textContent = `Training: ${data.steps} steps at ${data.mean_step_latency_ms}ms/step • Throughput: ${data.throughput_tokens_per_sec} tok/s • Loss: ${data.initial_loss} -> ${data.final_loss} (${data.loss_reduction_pct}%) • Status: ${data.converged ? 'CONVERGED' : 'NOT CONVERGED'} • Task: ${data.task || 'unknown'} (synthetic target)`;
       }
     } catch (err) {
       console.error('LoRA run error:', err);

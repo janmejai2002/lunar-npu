@@ -8,7 +8,7 @@ from __future__ import annotations
 import os
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 import openvino as ov
 
@@ -204,10 +204,18 @@ class SharedD3D11TextureDesc:
 
 class LevelZeroUSMBridge:
     """
-    Level Zero Unified Shared Memory (USM) zero-copy buffer bridge.
-    Bypasses host CPU 3-hop memory copy penalty by directly importing
-    D3D11 NT handles into Level Zero USM pointer space and wrapping
-    as OpenVINO RemoteTensor / Tensor.
+    UNIMPLEMENTED placeholder for a Level Zero / D3D11 zero-copy bridge.
+
+    WHAT THIS ACTUALLY DOES (audited 2026-09-11): it loads ze_loader.dll with
+    ctypes and never calls a single Level Zero function. It creates no D3D11
+    texture, imports no NT handle, and allocates no USM. create_shared_d3d11_
+    texture() VirtualAllocs ordinary process memory and FABRICATES the
+    nt_handle value from the wall clock. import_nt_handle_to_usm() wraps that
+    host buffer in an ov.Tensor -- an ordinary host tensor.
+
+    A real implementation needs IDXGIOutputDuplication -> shared NT handle ->
+    zeMemAllocShared / zeMemOpenIpcHandle -> ov.RemoteTensor. None of that is
+    here. Do not report this class numbers as hardware measurements.
     """
 
     def __init__(self, engine: Optional[LunarNPUEngine] = None) -> None:
@@ -234,8 +242,8 @@ class LevelZeroUSMBridge:
 
     def create_shared_d3d11_texture(self, width: int = 2880, height: int = 1800) -> SharedD3D11TextureDesc:
         """
-        Creates/simulates D3D11 texture with D3D11_RESOURCE_MISC_SHARED_NTHANDLE.
-        Allocates page-aligned contiguous physical memory.
+        Allocates an ordinary host buffer via VirtualAlloc. NOT a D3D11 texture.
+        The returned nt_handle is a fabricated placeholder, not an OS handle.
         """
         size_bytes = width * height * 4  # BGRA_8888
         nt_handle = 0x4000 + (int(time.time() * 1000) % 0xFFFF)
@@ -270,9 +278,9 @@ class LevelZeroUSMBridge:
         desc: SharedD3D11TextureDesc,
     ) -> Tuple[ov.Tensor, float]:
         """
-        Imports D3D11 NT handle directly into Level Zero USM pointer space.
-        Wraps imported buffer in OpenVINO Tensor with zero host copy.
-        Returns: (ov_tensor, import_latency_ms)
+        Wraps the host buffer from create_shared_d3d11_texture() in an ov.Tensor.
+        No NT handle is imported and no USM is involved.
+        Returns: (ov_tensor, wrap_latency_ms)
         """
         t0 = time.perf_counter()
 
@@ -290,7 +298,11 @@ class LevelZeroUSMBridge:
 
     def benchmark_transfer(self, width: int = 2880, height: int = 1800, iterations: int = 20) -> Dict[str, Any]:
         """
-        Benchmark Level Zero USM zero-copy import vs 3-hop traditional memory copy.
+        NOT A HARDWARE BENCHMARK. Compares wrapping a host buffer (no copy)
+        against explicitly calling .copy() on it twice. The "speedup" is true by
+        construction -- not copying is faster than copying -- and says nothing
+        about Level Zero, D3D11, DMA or the NPU. Retained only because tests and
+        the Studio UI still reference it. Do not quote these numbers.
         """
         desc = self.create_shared_d3d11_texture(width, height)
         size_mb = desc.size_in_bytes / (1024 * 1024)
@@ -301,7 +313,7 @@ class LevelZeroUSMBridge:
             _, lat = self.import_nt_handle_to_usm(desc)
             usm_lats.append(lat)
 
-        # 2. Simulated 3-Hop copy (D3D -> Host RAM -> NPU Staging -> DMA)
+        # 2. Two explicit host-side copies of the same buffer (NOT a DMA path)
         raw_buffer = np.zeros((height, width, 4), dtype=np.uint8)
         hop_lats = []
         for _ in range(iterations):
@@ -322,7 +334,9 @@ class LevelZeroUSMBridge:
             "three_hop_copy_latency_ms": round(mean_3hop, 2),
             "speedup_factor": speedup,
             "bandwidth_gbs": round((size_mb / 1024.0) / max(mean_usm / 1000.0, 1e-6), 1),
-            "zero_copy_verified": True,
+            "is_synthetic": True,
+            "measures_hardware": False,
+            "note": "Host-memory microbenchmark. No Level Zero, D3D11 or NPU involvement.",
         }
 
 
@@ -338,9 +352,12 @@ class SpeculativeTokenPacket:
 
 class SpeculativeRingBuffer:
     """
-    Lock-Free Cache-Line Aligned (alignas(64)) Speculative Ring Buffer.
-    Facilitates sub-microsecond zero-copy draft token handoff between
-    the low-power NPU draft engine and the Arc 140V Xe2 GPU verifier.
+    Single-producer/single-consumer ring buffer of draft-token packets.
+
+    This is a plain Python list guarded by non-atomic self._head += 1 under the
+    GIL. It is NOT lock-free, there are no memory barriers, and nothing is
+    cache-line aligned -- CPython gives no control over object placement. It is
+    correct for the single-threaded use it currently has.
     """
 
     CACHE_LINE_BYTES = 64
@@ -360,10 +377,23 @@ class SpeculativeRingBuffer:
         self._packets: List[Optional[SpeculativeTokenPacket]] = [None] * capacity
 
     @property
+    def buffer_address(self) -> int:
+        """Actual address of the backing bytearray data."""
+        return ctypes.addressof((ctypes.c_char * len(self._raw_buffer)).from_buffer(self._raw_buffer))
+
+    @property
     def is_aligned_64(self) -> bool:
-        """Verify memory is strictly 64-byte cache-line aligned."""
-        raw_addr = ctypes.c_void_p.from_buffer(self._raw_buffer).value or 0
-        return ((raw_addr + self.aligned_offset) % self.CACHE_LINE_BYTES) == 0
+        """
+        Real 64-byte alignment check on the backing buffer.
+
+        NOTE: this now reports the truth, which is that CPython bytearrays are
+        usually NOT 64-byte aligned. The previous implementation called
+        ctypes.c_void_p.from_buffer(bytearray), which reinterprets the first 8
+        BYTES OF CONTENT as a pointer rather than taking the buffer address; it
+        read None and so returned True unconditionally. Callers must not depend
+        on this being True.
+        """
+        return (self.buffer_address % self.CACHE_LINE_BYTES) == 0
 
     def available_items(self) -> int:
         """Return number of pending unread speculative token packets."""
@@ -381,8 +411,8 @@ class SpeculativeRingBuffer:
         draft_logits: Optional[np.ndarray] = None,
     ) -> bool:
         """
-        Producer: Push a draft token batch from NPU.
-        Executes lock-free in < 0.5 microseconds.
+        Producer: append a draft token batch. Not thread-safe against a
+        concurrent producer.
         """
         if self.is_full():
             return False
@@ -402,8 +432,7 @@ class SpeculativeRingBuffer:
 
     def pop(self) -> Optional[SpeculativeTokenPacket]:
         """
-        Consumer: Pop pending draft token packet for GPU verification.
-        Executes lock-free in < 0.5 microseconds.
+        Consumer: pop the oldest pending draft token packet.
         """
         if self.is_empty():
             return None
@@ -417,10 +446,11 @@ class SpeculativeRingBuffer:
 
 class ShaveDSPSpectralProcessor:
     """
-    SHAVE DSP v4 Vector Spectral Offload Engine.
-    Offloads 512-point complex FFT, vectorized Hann windowing, and
-    80-channel log-Mel filterbank spectral processing to the 12 SHAVE
-    DSP v4 vector units on Lunar Lake, executing in under 0.18ms per audio frame.
+    Log-Mel spectrogram front-end. Runs on the CPU via numpy (np.fft.rfft plus a
+    filterbank matmul). Nothing is offloaded to the NPU or to SHAVE DSP units --
+    the class name is historical. The mel filterbank construction and the
+    pre-emphasis/window/FFT/log pipeline are standard and correct; only the
+    hardware claim was wrong. Alias: MelSpectrogramCPU.
     """
 
     def __init__(self, n_fft: int = 512, hop_length: int = 160, n_mels: int = 80, sample_rate: int = 16000) -> None:
@@ -442,40 +472,42 @@ class ShaveDSPSpectralProcessor:
         return 700.0 * (10.0 ** (mel / 2595.0) - 1.0)
 
     def _build_mel_filters(self) -> np.ndarray:
-        """Construct 80-channel triangular Mel filterbank."""
-        num_bins = self.n_fft // 2 + 1
-        low_freq = 0.0
-        high_freq = float(self.sample_rate / 2.0)
-        low_mel = self._hz_to_mel(low_freq)
-        high_mel = self._hz_to_mel(high_freq)
+        """
+        Construct the triangular Mel filterbank.
 
-        mel_points = np.linspace(low_mel, high_mel, self.n_mels + 2)
-        hz_points = self._mel_to_hz(mel_points)
-        bins = np.floor((self.n_fft + 1) * hz_points / self.sample_rate).astype(int)
+        Evaluates each triangle against the exact FFT bin centre frequencies
+        rather than snapping band edges to integer bins with np.floor(). The
+        previous floor-snapping version produced ALL-ZERO filters whenever two
+        adjacent band edges landed in the same FFT bin -- which happens for the
+        low bands at n_fft=512 / 80 mels / 16 kHz, where the bands are narrower
+        than one bin. Filter index 2 was silently dead.
+        """
+        num_bins = self.n_fft // 2 + 1
+        low_mel = self._hz_to_mel(0.0)
+        high_mel = self._hz_to_mel(float(self.sample_rate / 2.0))
+
+        # n_mels + 2 band edges -> n_mels overlapping triangles.
+        hz_points = self._mel_to_hz(np.linspace(low_mel, high_mel, self.n_mels + 2))
+        # Exact centre frequency of every rfft bin.
+        fft_freqs = np.linspace(0.0, self.sample_rate / 2.0, num_bins)
 
         filters = np.zeros((self.n_mels, num_bins), dtype=np.float32)
-        for m in range(1, self.n_mels + 1):
-            f_m_minus = bins[m - 1]
-            f_m = bins[m]
-            f_m_plus = bins[m + 1]
-
-            for k in range(f_m_minus, f_m):
-                if f_m != f_m_minus:
-                    filters[m - 1, k] = (k - f_m_minus) / (f_m - f_m_minus)
-            for k in range(f_m, f_m_plus):
-                if f_m_plus != f_m:
-                    filters[m - 1, k] = (f_m_plus - k) / (f_m_plus - f_m)
+        for m in range(self.n_mels):
+            left, centre, right = hz_points[m], hz_points[m + 1], hz_points[m + 2]
+            rising = (fft_freqs - left) / max(centre - left, 1e-9)
+            falling = (right - fft_freqs) / max(right - centre, 1e-9)
+            filters[m] = np.maximum(0.0, np.minimum(rising, falling))
 
         return filters
 
     def process_spectral_frame(self, audio_samples: np.ndarray) -> Tuple[np.ndarray, float]:
         """
-        Execute vectorized spectral processing on SHAVE DSP v4:
+        Compute a log-Mel spectrogram on the CPU:
         1. Pre-emphasis: y[n] = x[n] - 0.97 * x[n-1]
         2. Hann windowing
         3. 512-point complex FFT
         4. 80-channel Mel filterbank matrix multiplication
-        5. Hardware log compression: ln(max(E, 1e-5))
+        5. Log compression: ln(max(E, 1e-5))
         Returns: (mel_spectrogram [n_mels, num_frames], latency_ms)
         """
         t0 = time.perf_counter()
@@ -484,7 +516,7 @@ class ShaveDSPSpectralProcessor:
         if len(audio) < self.n_fft:
             audio = np.pad(audio, (0, self.n_fft - len(audio)))
 
-        # 1. Vectorized pre-emphasis
+        # 1. Pre-emphasis
         emphasized = np.empty_like(audio)
         emphasized[0] = audio[0]
         emphasized[1:] = audio[1:] - 0.97 * audio[:-1]
@@ -493,10 +525,10 @@ class ShaveDSPSpectralProcessor:
         num_frames = max(1, 1 + (len(emphasized) - self.n_fft) // self.hop_length)
         frames = np.lib.stride_tricks.sliding_window_view(emphasized[: self.n_fft + (num_frames - 1) * self.hop_length], self.n_fft)[:: self.hop_length]
 
-        # 3. Vectorized Hann windowing
+        # 3. Hann windowing
         windowed = frames * self.hann_window
 
-        # 4. 512-Point Complex FFT
+        # 4. Real FFT
         fft_complex = np.fft.rfft(windowed, n=self.n_fft, axis=-1)
         power_spectrum = (np.abs(fft_complex) ** 2) / float(self.n_fft)
 
@@ -507,3 +539,6 @@ class ShaveDSPSpectralProcessor:
         latency_ms = (time.perf_counter() - t0) * 1000.0
         return log_mel, latency_ms
 
+
+# Honest alias; prefer this name in new code.
+MelSpectrogramCPU = ShaveDSPSpectralProcessor

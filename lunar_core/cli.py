@@ -101,16 +101,56 @@ def embed(ctx: click.Context, text: str, json_mode: bool):
 
 
 @cli.command("mamba")
-@click.option("--steps", default=100, help="Number of recurrent steps to benchmark")
+@click.argument("prompt", required=False, default=None)
+@click.option("--steps", default=None, type=int, help="Number of recurrent steps to benchmark")
+@click.option("--max-tokens", default=25, help="Maximum number of tokens to generate")
+@click.option("--temperature", default=0.2, help="Sampling temperature")
 @click.option("--json", "json_mode", is_flag=True, help="Output machine-readable JSON")
 @click.pass_context
-def mamba_bench(ctx: click.Context, steps: int, json_mode: bool):
-    """Benchmark Mamba SSM recurrent step latency and throughput."""
+def mamba_bench(
+    ctx: click.Context,
+    prompt: Optional[str],
+    steps: Optional[int],
+    max_tokens: int,
+    temperature: float,
+    json_mode: bool,
+):
+    """Autoregressive code generation or recurrent benchmark on Mamba SSM."""
     engine: LunarNPUEngine = ctx.obj["engine"]
     json_mode = json_mode or ctx.obj.get("json_mode", False)
     mamba = LunarMambaEngine(engine=engine)
-    results = mamba.benchmark(num_steps=steps)
-    _output(results, json_mode)
+
+    if steps is not None or prompt is None:
+        num_steps = steps if steps is not None else 100
+        results = mamba.benchmark(num_steps=num_steps)
+        _output(results, json_mode)
+    else:
+        t0 = time.perf_counter()
+        output = mamba.generate(prompt=prompt, max_new_tokens=max_tokens, temperature=temperature)
+        lat_ms = (time.perf_counter() - t0) * 1000.0
+        res = {
+            "prompt": prompt,
+            "completion": output,
+            "max_tokens": max_tokens,
+            "latency_ms": round(lat_ms, 2),
+            "tokens_per_second": round(max_tokens / (lat_ms / 1000.0), 1) if lat_ms > 0 else 0.0,
+            "device": engine.device,
+            "weight_source": mamba.weights.get("source", "pretrained"),
+        }
+        if json_mode:
+            click.echo(json.dumps(res, indent=2))
+        else:
+            click.echo("=" * 64)
+            click.echo(" LUNAR MAMBA PRETRAINED SILICON GENERATION")
+            click.echo("=" * 64)
+            click.echo(f"  Prompt      : {prompt}")
+            click.echo(f"  Latency     : {lat_ms:.2f} ms")
+            click.echo(f"  Throughput  : {res['tokens_per_second']} tok/s")
+            click.echo(f"  Source      : {res['weight_source']}")
+            click.echo("-" * 64)
+            click.echo(output)
+            click.echo("=" * 64)
+
 
 
 @cli.command("speculative")
@@ -228,14 +268,19 @@ def screen_command(ctx: click.Context, json_mode: bool):
 @cli.command("transcribe")
 @click.argument("audio_path", required=False)
 @click.option("--language", default="en", help="Target language code (e.g. en, es, de)")
+@click.option("--loopback", is_flag=True, help="Capture live desktop speaker output via native Windows WASAPI loopback")
+@click.option("--duration", default=3.0, type=float, help="Capture duration in seconds for loopback mode")
 @click.option("--json", "json_mode", is_flag=True, help="Output machine-readable JSON")
 @click.pass_context
-def transcribe_command(ctx: click.Context, audio_path: Optional[str], language: str, json_mode: bool):
+def transcribe_command(ctx: click.Context, audio_path: Optional[str], language: str, loopback: bool, duration: float, json_mode: bool):
     """Transcribe speech or audio file using Whisper Tiny on Intel Lunar Lake NPU."""
     engine: LunarNPUEngine = ctx.obj["engine"]
     json_mode = json_mode or ctx.obj.get("json_mode", False)
     audio_engine = LunarAudioEngine(engine=engine)
-    res = audio_engine.transcribe(audio_source=audio_path, language=language)
+    if loopback:
+        res = audio_engine.transcribe_loopback(duration_s=duration, language=language)
+    else:
+        res = audio_engine.transcribe(audio_source=audio_path, language=language)
     if json_mode:
         click.echo(json.dumps(res.to_dict(), indent=2))
     else:
@@ -248,6 +293,7 @@ def transcribe_command(ctx: click.Context, audio_path: Optional[str], language: 
         click.echo(f"  Inference Latency : {res.latency_ms:.2f} ms")
         click.echo(f"  Real-Time Factor  : {res.real_time_factor:.1f} x")
         click.echo(f"  Indexed Memory ID : {res.memory_doc_id}")
+        click.echo(f"  VAD Speech Gated  : {res.vad_active} (RMS Energy: {res.rms_energy:.6f})")
         click.echo("-" * 72)
         click.echo("  TRANSCRIPTION RESULT:")
         click.echo(f"  \"{res.text}\"")
@@ -884,10 +930,21 @@ def profile_command(ctx: click.Context, set_profile: Optional[str], json_mode: b
 @click.option("--rank", default=8, help="LoRA rank dimension")
 @click.option("--lr", default=0.001, help="Learning rate for SRAMAdamW optimizer")
 @click.option("--surge", is_flag=True, help="Force Lunar Surge (47 TOPS) mode")
+@click.option("--from-logs", is_flag=True, help="Train on real user corrections / session logs")
+@click.option("--log-path", default=None, help="Path to audit / session log file")
 @click.option("--json", "json_mode", is_flag=True, help="Output machine-readable JSON")
 @click.pass_context
-def lora_command(ctx: click.Context, steps: int, rank: int, lr: float, surge: bool, json_mode: bool):
-    """Execute on-device continuous Micro-LoRA adaptation using Adjoint Forward GEMMs."""
+def lora_command(
+    ctx: click.Context,
+    steps: int,
+    rank: int,
+    lr: float,
+    surge: bool,
+    from_logs: bool,
+    log_path: Optional[str],
+    json_mode: bool,
+):
+    """Execute on-device continuous Micro-LoRA adaptation using Adjoint Forward GEMMs on NPU."""
     from lunar_core.micro_lora import MicroLoRAEngine
     engine: LunarNPUEngine = ctx.obj["engine"]
     json_mode = json_mode or ctx.obj.get("json_mode", False)
@@ -896,7 +953,10 @@ def lora_command(ctx: click.Context, steps: int, rank: int, lr: float, surge: bo
         engine.set_profile("surge")
 
     lora = MicroLoRAEngine(rank=rank, lr=lr, engine=engine)
-    res = lora.benchmark_adaptation(steps=steps)
+    if from_logs:
+        res = lora.train_on_session_logs(log_path=log_path, steps_limit=steps)
+    else:
+        res = lora.benchmark_adaptation(steps=steps)
 
     if json_mode:
         click.echo(json.dumps(res, indent=2))
@@ -904,15 +964,23 @@ def lora_command(ctx: click.Context, steps: int, rank: int, lr: float, surge: bo
         click.echo("=" * 72)
         click.echo("       ON-DEVICE MICRO-LORA CONTINUOUS ADAPTATION REPORT")
         click.echo("=" * 72)
-        click.echo(f"  Execution Device  : {res['device']} (Profile: {res['profile'].upper()})")
-        click.echo(f"  Steps / Batch Size: {res['steps']} / {res['batch_size']}")
-        click.echo(f"  Adapter Rank (r)  : {res['rank']} (Alpha: {res['alpha']})")
-        click.echo(f"  Trainable Params  : {res['trainable_parameters']}")
-        click.echo(f"  SRAM Footprint    : {res['sram_footprint_bytes'] / 1024:.1f} KB (On-Die 12MB SRAM)")
-        click.echo(f"  Step Latency (GEMM): {res['mean_step_latency_ms']:.3f} ms (p95: {res['p95_step_latency_ms']:.3f} ms)")
-        click.echo(f"  Token Throughput  : {res['throughput_tokens_per_sec']:.1f} tokens/s")
-        click.echo(f"  Loss Trajectory   : {res['initial_loss']:.6f} -> {res['final_loss']:.6f} (-{res['loss_reduction_pct']}%)")
-        click.echo(f"  Convergence Status: [{'CONVERGED' if res['converged'] else 'IN_PROGRESS'}]")
+        dev = res.get("device", engine.device)
+        b_dev = res.get("backward_device", dev)
+        prof = res.get("profile", engine.current_profile).upper()
+        click.echo(f"  Execution Device  : {dev} (Backward: {b_dev}, Profile: {prof})")
+        click.echo(f"  Steps Completed   : {res['steps']}")
+        if "rank" in res:
+            click.echo(f"  Adapter Rank (r)  : {res['rank']} (Alpha: {res.get('alpha', rank * 2.0)})")
+            click.echo(f"  Trainable Params  : {res.get('trainable_parameters', lora.total_parameters)}")
+        click.echo(f"  SRAM Footprint    : {res.get('sram_footprint_bytes', res.get('adapter_memory_bytes', 0)) / 1024:.1f} KB (host DRAM)")
+        click.echo(f"  Step Latency (GEMM): {res.get('mean_step_latency_ms', 0.0):.3f} ms")
+        if "throughput_tokens_per_sec" in res:
+            click.echo(f"  Token Throughput  : {res['throughput_tokens_per_sec']:.1f} tokens/s")
+        click.echo(f"  Loss Trajectory   : {res['initial_loss']:.6f} -> {res['final_loss']:.6f} (-{res.get('loss_reduction_pct', 0.0)}%)")
+        if "converged" in res:
+            click.echo(f"  Convergence Status: [{'CONVERGED' if res['converged'] else 'IN_PROGRESS'}]")
+        if "source" in res:
+            click.echo(f"  Training Source   : {res['source']}")
         click.echo("=" * 72)
 
 
@@ -986,6 +1054,107 @@ def install_mcp_command(ctx: click.Context, client: str, dry_run: bool, status: 
             click.echo("=" * 76)
 
 
+@cli.command("sketch")
+@click.argument("prompt")
+@click.option("--out", default=None, help="Output path for generated 512x512 image")
+@click.option("--steps", default=4, help="Number of Latent Consistency Model denoising steps (default: 4)")
+@click.option("--json", "json_mode", is_flag=True, help="Output machine-readable JSON")
+@click.pass_context
+def sketch_command(ctx: click.Context, prompt: str, out: Optional[str], steps: int, json_mode: bool):
+    """Synthesize 512x512 visual diagram/image using heterogeneous NPU+GPU 4-step diffusion."""
+    from lunar_core.diffusion import get_diffusion_engine
+    json_mode = json_mode or ctx.obj.get("json_mode", False)
+
+    diff = get_diffusion_engine()
+    res = diff.sketch(prompt=prompt, steps=steps, out_path=out)
+    data = res.to_dict()
+
+    if json_mode:
+        click.echo(json.dumps(data, indent=2))
+    else:
+        click.echo("=" * 72)
+        click.echo("       LUNAR LAKE HETEROGENEOUS DIFFUSION SYNTHESIS (LCM 4-STEP)")
+        click.echo("=" * 72)
+        click.echo(f"  Prompt            : {data['prompt']}")
+        click.echo(f"  Output Image      : {data['image_path']}")
+        click.echo(f"  Resolution        : {data['resolution'][0]}x{data['resolution'][1]} PNG")
+        click.echo(f"  Execution Latency : {data['latency_ms']:.2f} ms")
+        click.echo(f"  Heterogeneous Map : Text: {data['text_device']} | Denoiser: {data['denoiser_device']} | VAE: {data['vae_device']}")
+        click.echo(f"  Perceptual Hash   : {data['phash']}")
+        click.echo("=" * 72)
+
+
+@cli.command("index")
+@click.option("--max-chunks", default=350, type=int, help="Maximum code AST symbols to index")
+@click.option("--persist/--no-persist", default=True, help="Persist index and PQ8 codes to disk")
+@click.option("--json", "json_mode", is_flag=True, help="Output machine-readable JSON")
+@click.pass_context
+def index_command(ctx: click.Context, max_chunks: int, persist: bool, json_mode: bool):
+    """Crawl real repositories (jolly-meitner, agent-craft, xlflow) into S^383 vector memory."""
+    from lunar_core.indexer import CodeRepoIndexer
+    indexer = CodeRepoIndexer()
+    json_mode = json_mode or ctx.obj.get("json_mode", False)
+
+    stats = indexer.index_repositories(max_chunks=max_chunks, persist=persist)
+    if json_mode:
+        click.echo(json.dumps(stats, indent=2))
+    else:
+        click.echo("=" * 76)
+        click.echo("       LUNAR NPU REAL-WORLD REPO S^383 CODE INDEXER")
+        click.echo("=" * 76)
+        for k, v in stats.items():
+            click.echo(f"  {k:<24}: {v}")
+        click.echo("=" * 76)
+
+
+@cli.command("query-code")
+@click.argument("query_str")
+@click.option("--top-k", default=5, type=int, help="Number of code symbols to retrieve")
+@click.option("--json", "json_mode", is_flag=True, help="Output machine-readable JSON")
+@click.pass_context
+def query_code_command(ctx: click.Context, query_str: str, top_k: int, json_mode: bool):
+    """Query real indexed code symbols and PQ8 codes on S^383 hypersphere (<3ms on NPU)."""
+    from lunar_core.indexer import get_repo_indexer
+    indexer = get_repo_indexer()
+    json_mode = json_mode or ctx.obj.get("json_mode", False)
+
+    results = indexer.query_code(query_str, top_k=top_k)
+    if json_mode:
+        click.echo(json.dumps({"query": query_str, "top_k": top_k, "results": results}, indent=2))
+    else:
+        click.echo("=" * 76)
+        click.echo(f"       LUNAR S^383 CODE RETRIEVAL FOR: '{query_str}'")
+        click.echo("=" * 76)
+        for idx, r in enumerate(results, 1):
+            click.echo(f"\n[{idx}] {r['symbol']} ({r['type']}) — Score: {r['score']:.4f}")
+            click.echo(f"    File: {r['file']}:{r['line']}")
+            click.echo(f"    PQ8:  {r['pq8_code_hex'][:32]}...")
+            click.echo(f"    Latency: {r['query_latency_ms']:.2f}ms query + {r['adc_scan_ms']:.3f}ms scan")
+            click.echo(f"    Code snippet:\n{r['code'][:200]}...")
+        click.echo("\n" + "=" * 76)
+
+
+@cli.command("guard-audit")
+@click.argument("command_str")
+@click.option("--json", "json_mode", is_flag=True, help="Output machine-readable JSON")
+@click.pass_context
+def guard_audit_command(ctx: click.Context, command_str: str, json_mode: bool):
+    """Audit shell command through \\\\.\\pipe\\lunar_silicon_guard with HMAC receipt."""
+    from lunar_core.hooks.silicon_guard_pipe import send_guard_ipc_query
+    json_mode = json_mode or ctx.obj.get("json_mode", False)
+
+    res = send_guard_ipc_query(command_str)
+    if json_mode:
+        click.echo(json.dumps(res, indent=2))
+    else:
+        click.echo("=" * 76)
+        click.echo("       LUNAR SILICON GUARD NAMED-PIPE AUDIT REPORT")
+        click.echo("=" * 76)
+        for k, v in res.items():
+            click.echo(f"  {k:<24}: {v}")
+        click.echo("=" * 76)
+
+
 @cli.command("craft")
 @click.argument("subcommand", type=click.Choice(["audit", "fix", "tokens"], case_sensitive=False))
 @click.argument("target_path", required=False, default=".")
@@ -1007,10 +1176,110 @@ def craft_command(ctx: click.Context, subcommand: str, target_path: str, json_mo
     click.echo(res.stdout)
 
 
+@cli.command("srnc")
+@click.argument("action", type=click.Choice(["audit", "bench", "solve", "status"], case_sensitive=False), default="status")
+@click.argument("target", required=False, default="")
+@click.option("--json", "json_mode", is_flag=True, help="Output machine-readable JSON")
+@click.pass_context
+def srnc_command(ctx: click.Context, action: str, target: str, json_mode: bool):
+    """Silicon-Reflex Neural-Compiler (SRNC) hardware acceleration commands."""
+    from lunar_core.srnc import SiliconReflexNeuralCompiler
+    srnc = SiliconReflexNeuralCompiler()
+    json_mode = json_mode or ctx.obj.get("json_mode", False)
+
+    if action == "status":
+        res = {
+            "hardware": srnc.hardware_profile,
+            "shm_ring_buffer": {
+                "name": srnc.shm.name,
+                "total_capacity_mb": srnc.shm.capacity / (1024 * 1024),
+                "channels": 2,
+            },
+            "status": "ONLINE",
+        }
+    elif action == "bench":
+        res = srnc.run_hardware_benchmarks()
+    elif action == "audit":
+        res = srnc.audit_intent(target or "git status")
+    elif action == "solve":
+        res = srnc.verify_and_optimize_element(
+            elem_id="target_element",
+            current_w=30.0,
+            current_h=24.0,
+            fg_rgb=(0.4, 0.4, 0.4),
+            bg_rgb=(0.02, 0.04, 0.08),
+        )
+    else:
+        res = {"error": f"Unknown action {action}"}
+
+    if json_mode:
+        click.echo(json.dumps(res, indent=2))
+    else:
+        click.echo("=" * 76)
+        click.echo("       SILICON-REFLEX NEURAL-COMPILER (SRNC) EXECUTION REPORT")
+        click.echo("=" * 76)
+        click.echo(json.dumps(res, indent=2))
+        click.echo("=" * 76)
+
+
+@cli.group("hdc")
+def hdc_group():
+    """10,000-Bit Hyperdimensional Computing (HDC) Memory Subsystem."""
+    pass
+
+
+@hdc_group.command("store")
+@click.argument("key")
+@click.argument("text")
+@click.option("--json", "json_mode", is_flag=True, help="Output machine-readable JSON")
+def hdc_store_command(key: str, text: str, json_mode: bool):
+    """Store a text concept into 10,000-bit hyperdimensional memory."""
+    from lunar_core.hdc import HyperdimensionalMemoryEngine
+
+    mem_path = Path(".lunar_hdc_memory.json")
+    engine = HyperdimensionalMemoryEngine()
+    engine.load_from_file(mem_path)
+    engine.add(key, text, metadata={"text": text})
+    engine.save_to_file(mem_path)
+    res = {"status": "stored", "key": key, "stats": engine.stats()}
+    if json_mode:
+        click.echo(json.dumps(res, indent=2))
+    else:
+        click.echo(f"Stored '{key}' into 10,000-bit HDC memory ({engine.stats()['num_vectors']} vectors total).")
+
+
+@hdc_group.command("query")
+@click.argument("query_text")
+@click.option("--top-k", default=5, type=int, help="Number of top candidates to retrieve")
+@click.option("--json", "json_mode", is_flag=True, help="Output machine-readable JSON")
+def hdc_query_command(query_text: str, top_k: int, json_mode: bool):
+    """Recall associative concepts from 10,000-bit hyperdimensional memory."""
+    from lunar_core.hdc import HyperdimensionalMemoryEngine
+
+    mem_path = Path(".lunar_hdc_memory.json")
+    engine = HyperdimensionalMemoryEngine()
+    engine.load_from_file(mem_path)
+    results = engine.query(query_text, top_k=top_k)
+    data = [r.to_dict() for r in results]
+    if json_mode:
+        click.echo(json.dumps(data, indent=2))
+    else:
+        click.echo("=" * 72)
+        click.echo("       LUNAR 10,000-BIT HYPERDIMENSIONAL ASSOCIATIVE RECALL")
+        click.echo("=" * 72)
+        if not results:
+            click.echo("  No vectors found in HDC memory. Store some with 'lunar hdc store <key> <text>'")
+        for r in results:
+            click.echo(f"  Key: {r.key:<20} | Similarity: {r.similarity:.4f} | Hamming Dist: {r.hamming_distance} | Latency: {r.latency_us:.1f}µs")
+        click.echo("=" * 72)
+
+
 def main():
     cli()
 
 
 if __name__ == "__main__":
     main()
+
+
 

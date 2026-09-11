@@ -38,6 +38,10 @@ class LunarVectorMemory:
         self.embedding_dim = embedding_dim
         self.model_dir = Path(model_dir) if model_dir else self.DEFAULT_BGE_DIR
 
+        # True when no trained embedding model was found and random projections
+        # are in use. Check this before trusting any similarity score.
+        self.is_degraded = False
+
         self.tokenizer = self._init_tokenizer()
         self.compiled_model, self.infer_request = self._init_model()
 
@@ -77,7 +81,29 @@ class LunarVectorMemory:
             except Exception:
                 pass
 
-        # Build fallback deterministic dense embedding graph in OpenVINO (BoW Gather + Mean Pool)
+        # ------------------------------------------------------------------
+        # DEGRADED FALLBACK. No trained embedding model was found on disk, so
+        # we build a random-projection bag-of-words graph. The projection table
+        # below is np.random with a fixed seed: it carries NO semantic meaning.
+        # Synonyms map to orthogonal vectors, so every downstream "semantic"
+        # feature (routing, similarity search, archetype confidence) degrades to
+        # lexical hashing while still emitting confident-looking scores.
+        #
+        # This path exists so the package imports on a machine without weights.
+        # It must never be mistaken for working retrieval -- self.is_degraded is
+        # surfaced through /api/health and must be checked before trusting any
+        # similarity number.
+        # ------------------------------------------------------------------
+        import warnings
+        warnings.warn(
+            f"LunarVectorMemory: no embedding model found at {self.model_dir} or "
+            f"{self.DEFAULT_MINILM_PATH}. Falling back to RANDOM projections. "
+            f"Embeddings are not semantic and retrieval results are meaningless.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        self.is_degraded = True
+
         vocab_size = 8192
         input_ids = ops.parameter([1, self.seq_len], ov.Type.i64, name="input_ids")
         rng = np.random.RandomState(42)
@@ -264,6 +290,12 @@ class LunarVectorMemory:
         else:
             self.documents = loaded
         return len(self.documents)
+
+    def index_code_repositories(self, repo_paths: Optional[List[Any]] = None, max_chunks: int = 350) -> Dict[str, Any]:
+        """Index real code repositories into this vector memory using CodeRepoIndexer."""
+        from lunar_core.indexer import CodeRepoIndexer
+        indexer = CodeRepoIndexer(vmem=self)
+        return indexer.index_repositories(repo_paths=repo_paths, max_chunks=max_chunks, persist=True)
 
 
 # ============================================================================

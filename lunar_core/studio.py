@@ -26,7 +26,11 @@ from lunar_core.engine import LunarNPUEngine
 from lunar_core.mamba_ssm import LunarMambaEngine
 from lunar_core.vector_memory import LunarVectorMemory
 from lunar_core.speculative import LunarSpeculativePipeline
-from lunar_core.circuit_breaker import SiliconCircuitBreaker, DualStageSiliconCircuitBreaker
+from lunar_core.circuit_breaker import (
+    SiliconCircuitBreaker,
+    DualStageSiliconCircuitBreaker,
+    HAZARD_MODEL_IS_TRAINED as _HAZARD_MODEL_IS_TRAINED,
+)
 from lunar_core.router import MicroRouter, GeodesicMicroRouter
 from lunar_core.power_telemetry import get_power_telemetry, LunarPowerTelemetry, get_power_governor
 from lunar_core.stress import run_npu_stress_test, get_stress_engine
@@ -64,11 +68,16 @@ class SiliconTelemetry:
     def __init__(self):
         self.start_time = time.time()
         self.telemetry_path = Path(".lunar_telemetry.json")
-        self.total_embeddings = 428
-        self.total_mamba_steps = 3200
-        self.total_routed_prompts = 412
-        self.total_circuit_audits = 615
-        self.total_silicon_time_ms = 894.5
+        # Counters start at zero. They were previously seeded with fabricated
+        # values (428 / 3200 / 412 / 615 / 894.5 ms) so that a freshly launched
+        # dashboard would look like it had already done work. Any number shown
+        # in the UI must now correspond to an operation this process actually
+        # performed, or to a value loaded from .lunar_telemetry.json.
+        self.total_embeddings = 0
+        self.total_mamba_steps = 0
+        self.total_routed_prompts = 0
+        self.total_circuit_audits = 0
+        self.total_silicon_time_ms = 0.0
         self.recent_events: List[Dict[str, Any]] = []
         self.power_sensor = get_power_telemetry()
         self._load_telemetry()
@@ -127,19 +136,35 @@ class SiliconTelemetry:
     def summary(self) -> Dict[str, Any]:
         uptime_sec = time.time() - self.start_time
         total_ops = self.total_embeddings + self.total_routed_prompts + self.total_circuit_audits + self.total_mamba_steps
-        # Token Savings Model based on Cloud API displacement (Claude 3.5 Sonnet / GPT-4o @ $15/M)
-        tokens_cb = self.total_circuit_audits * 800        # Deterministic 1.54µs DFA vs LLM guardrail prompt
-        tokens_router = self.total_routed_prompts * 600    # Geodesic S^383 centroid vs cloud router call
-        tokens_vmem = self.total_embeddings * 2500         # On-device hyperspherical recall vs multi-file prompt dump
-        tokens_mamba = self.total_mamba_steps * 100        # Constant O(1) recurrence & 0.72µs restore vs recomputation
-        tokens_lora = 117350                               # Local SRAM systolic backprop vs cloud fine-tuning
-        total_tokens_saved = tokens_cb + tokens_router + tokens_vmem + tokens_mamba + tokens_lora
-        cloud_savings_usd = (total_tokens_saved / 1_000_000.0) * 15.00
+        # ---------------------------------------------------------------
+        # ESTIMATE, NOT A MEASUREMENT.
+        # Nothing here is counted. The per-operation token figures below are
+        # assumptions about what an equivalent cloud call MIGHT have cost, and
+        # they have never been validated against a real token ledger. The old
+        # `tokens_lora = 117350` was a bare constant that appeared in the total
+        # even when no LoRA training had ever run; it is removed.
+        # Treat the dollar figure as an illustrative upper bound only.
+        # ---------------------------------------------------------------
+        ASSUMED_TOKENS_PER_AUDIT = 800     # unvalidated assumption
+        ASSUMED_TOKENS_PER_ROUTE = 600     # unvalidated assumption
+        ASSUMED_TOKENS_PER_EMBED = 2500    # unvalidated assumption
+        ASSUMED_TOKENS_PER_MAMBA_STEP = 100  # unvalidated assumption
+        ASSUMED_USD_PER_MTOK = 15.00       # frontier-model list price, order-of-magnitude
+
+        tokens_cb = self.total_circuit_audits * ASSUMED_TOKENS_PER_AUDIT
+        tokens_router = self.total_routed_prompts * ASSUMED_TOKENS_PER_ROUTE
+        tokens_vmem = self.total_embeddings * ASSUMED_TOKENS_PER_EMBED
+        tokens_mamba = self.total_mamba_steps * ASSUMED_TOKENS_PER_MAMBA_STEP
+        total_tokens_saved = tokens_cb + tokens_router + tokens_vmem + tokens_mamba
+        cloud_savings_usd = (total_tokens_saved / 1_000_000.0) * ASSUMED_USD_PER_MTOK
 
         # Sample live Intel RAPL power domains from physical sensors
         p_sample = self.power_sensor.sample()
         host_w = max(p_sample.get("package_power_w", 18.0), 12.0)
         npu_w = p_sample.get("npu_power_est_w", 2.2)
+        # ESTIMATE. Assumes every millisecond of NPU time displaced a
+        # millisecond at full package power, which is not how SoC power
+        # works (the package rail is shared and not additive per-engine).
         joules_saved = (self.total_silicon_time_ms / 1000.0) * (host_w - npu_w)
 
         # Inspect local client registrations
@@ -162,7 +187,7 @@ class SiliconTelemetry:
                 "active_contract": "PreToolUse Shell Guard (<15µs) + S³⁸³ Memory Commit",
                 "audits_handled": self.total_circuit_audits,
                 "tokens_saved": tokens_cb + tokens_vmem,
-                "last_active": "Active Dogfooding",
+                "last_active": "unknown",
             }
         ]
 
@@ -179,7 +204,9 @@ class SiliconTelemetry:
                 "transport": f"FastMCP 2.0 ({c.get('config_path', '')})",
                 "active_contract": "10 Native Silicon Tools Exported" if c.get("lunar_registered") else "One-Click Attach Available",
                 "audits_handled": 0,
-                "tokens_saved": 420000 if c.get("lunar_registered") else 0,
+                # Was a hardcoded 420000 for any registered client. Nothing
+                # is counted per-client, so report nothing.
+                "tokens_saved": None,
                 "last_active": "Standby" if c.get("lunar_registered") else "Unattached",
             })
 
@@ -197,7 +224,8 @@ class SiliconTelemetry:
                             verdict = record.get("verdict", "ALLOWED")
                             lat_ms = record.get("latency_ms", 0.002)
                             lat_str = f"{lat_ms * 1000:.1f}µs" if lat_ms < 0.05 else f"{lat_ms:.2f}ms"
-                            toks = 850 if verdict == "ALLOWED" else 1200
+                            # Per-event token savings are not measured.
+                            toks = None
                             live_feed.append({
                                 "agent": "Antigravity",
                                 "command": cmd,
@@ -217,6 +245,8 @@ class SiliconTelemetry:
             "uptime_seconds": round(uptime_sec, 1),
             "total_silicon_inferences": total_ops,
             "total_tokens_saved": total_tokens_saved,
+            "savings_are_estimates": True,
+            "savings_methodology": "Per-op token costs are unvalidated assumptions, not measurements. See SiliconTelemetry.summary().",
             "cloud_dollars_saved": round(cloud_savings_usd, 2),
             "energy_joules_saved": round(joules_saved, 2),
             "estimated_tokens_routed": total_tokens_saved,
@@ -355,6 +385,15 @@ class LunarStudioHandler(BaseHTTPRequestHandler):
             cls.git_engine = GitTimeMachine(engine=cls.engine, memory=cls.vmem)
         return cls.git_engine
 
+    diffusion: Optional[Any] = None
+
+    @classmethod
+    def get_diffusion(cls) -> Any:
+        if cls.diffusion is None:
+            from lunar_core.diffusion import LunarHeterogeneousDiffusion
+            cls.diffusion = LunarHeterogeneousDiffusion(engine=cls.engine)
+        return cls.diffusion
+
     # Preload workspace memories from disk
     if Path(".lunar_workspace_memory.json").exists():
         try:
@@ -414,7 +453,19 @@ class LunarStudioHandler(BaseHTTPRequestHandler):
             return
 
         if path in ("/health", "/api/health"):
-            self.send_json({"status": "ok", "npu": True, "device": self.engine.device, "version": "1.0.0"})
+            # "npu" was previously hardcoded True even when OpenVINO had fallen
+            # back to GPU or CPU. Report what is actually in use.
+            self.send_json({
+                "status": "ok",
+                "npu": bool(getattr(self.engine, "is_npu", False)),
+                "device": self.engine.device,
+                "available_devices": list(self.engine.core.available_devices),
+                # True when no trained embedding model was found and the vector
+                # memory is running on random projections.
+                "embeddings_degraded": bool(getattr(self.vmem, "is_degraded", False)),
+                "hazard_model_trained": _HAZARD_MODEL_IS_TRAINED,
+                "version": "2.3.0",
+            })
             return
 
         if path == "/api/route":
@@ -447,8 +498,134 @@ class LunarStudioHandler(BaseHTTPRequestHandler):
         if path == "/api/query":
             q = query.get("q", [""])[0]
             top_k = int(query.get("top_k", [3])[0])
+            try:
+                from lunar_core.indexer import get_repo_indexer
+                indexer = get_repo_indexer(vmem=self.vmem)
+                code_res = indexer.query_code(q, top_k=top_k)
+                if code_res:
+                    self.telemetry.record("vector_memory", code_res[0].get("query_latency_ms", 1.5), {"query": q, "count": len(code_res)})
+                    self.send_json(code_res)
+                    return
+            except Exception:
+                pass
             res = self.vmem.query(q, top_k=top_k)
             self.send_json(res)
+            return
+
+        if path == "/api/memory/inspect":
+            try:
+                from lunar_core.indexer import get_repo_indexer
+                indexer = get_repo_indexer(vmem=self.vmem)
+                q_filter = query.get("filter", [""])[0].lower()
+                matching = []
+                for idx, c in enumerate(indexer.chunks):
+                    if q_filter and (q_filter not in c.symbol_name.lower() and q_filter not in c.file_path.lower() and q_filter not in c.repo.lower()):
+                        continue
+                    code_hex = indexer.codes[idx].tobytes().hex() if idx < len(indexer.codes) else ""
+                    matching.append({
+                        "id": c.id,
+                        "symbol": c.symbol_name,
+                        "type": c.symbol_type,
+                        "repo": c.repo,
+                        "file": c.file_path,
+                        "line": c.start_line,
+                        "end_line": c.end_line,
+                        "signature": c.signature,
+                        "code_preview": c.code_snippet[:250],
+                        "pq8_code_hex": code_hex,
+                    })
+                self.send_json({
+                    "status": "ok",
+                    "total_indexed": len(indexer.chunks),
+                    "matched_count": len(matching),
+                    "pq8_subspaces": 48,
+                    "compression": "32x (48 bytes/symbol)",
+                    "chunks": matching[:100],
+                })
+            except Exception as e:
+                self.send_json({"status": "error", "error": str(e), "chunks": []})
+            return
+
+        if path == "/api/tokens/stats":
+            audit_file = Path(".lunar_circuit_audit.jsonl")
+            n_audits = 0
+            if audit_file.exists():
+                try:
+                    with open(audit_file, "r", encoding="utf-8") as f:
+                        n_audits = sum(1 for line in f if line.strip())
+                except Exception:
+                    n_audits = self.telemetry.total_circuit_audits
+            else:
+                n_audits = self.telemetry.total_circuit_audits
+
+            try:
+                from lunar_core.indexer import get_repo_indexer
+                indexer = get_repo_indexer(vmem=self.vmem)
+                n_indexed = len(indexer.chunks)
+            except Exception:
+                n_indexed = len(self.vmem.documents)
+
+            # ESTIMATES built on unvalidated per-op assumptions, not counts.
+            tokens_saved_recall = n_indexed * 1500
+            tokens_saved_audits = n_audits * 850
+            total_tokens = tokens_saved_recall + tokens_saved_audits
+            dollars_saved = round((total_tokens / 1_000_000.0) * 15.0, 2)
+
+            self.send_json({
+                "total_tokens_saved": total_tokens,
+                "savings_are_estimates": True,
+                "dollars_saved": dollars_saved,
+                "code_symbols_indexed": n_indexed,
+                "circuit_breaker_audits": n_audits,
+                "recall_tokens_saved": tokens_saved_recall,
+                "guard_tokens_saved": tokens_saved_audits,
+                "cloud_api_rate": "$15.00 / 1M tokens",
+            })
+            return
+
+        if path == "/api/stream":
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Connection", "keep-alive")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+
+            try:
+                init_data = json.dumps({
+                    "type": "INIT",
+                    "timestamp": time.time(),
+                    "uptime": time.time() - self.telemetry.start_time,
+                    "npu_profile": getattr(self.engine, "current_profile", "surge"),
+                })
+                self.wfile.write(f"event: init\ndata: {init_data}\n\n".encode("utf-8"))
+                self.wfile.flush()
+
+                audit_file = Path(".lunar_circuit_audit.jsonl")
+                recent_audits = []
+                if audit_file.exists():
+                    try:
+                        with open(audit_file, "r", encoding="utf-8") as f:
+                            lines = [line.strip() for line in f if line.strip()]
+                            for line in lines[-15:]:
+                                recent_audits.append(json.loads(line))
+                    except Exception:
+                        pass
+
+                for a in recent_audits:
+                    msg = json.dumps({
+                        "type": "AUDIT",
+                        "command": a.get("command", ""),
+                        "decision": a.get("decision", a.get("verdict", "ALLOW")),
+                        "tier": a.get("tier", "DFA"),
+                        "latency_us": a.get("latency_us", (a.get("latency_ms", 0.0) * 1000.0)),
+                        "receipt": a.get("receipt", "LUNAR-SEC-FASTPATH"),
+                        "timestamp": a.get("timestamp", time.time()),
+                    })
+                    self.wfile.write(f"event: audit\ndata: {msg}\n\n".encode("utf-8"))
+                    self.wfile.flush()
+            except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, OSError):
+                return
             return
 
         if path == "/api/speculative":
@@ -598,10 +775,116 @@ class LunarStudioHandler(BaseHTTPRequestHandler):
             self.send_json(TOOLS_DEFINITIONS)
             return
 
-        if path == "/api/benchmark":
-            iters = int(query.get("iterations", [30])[0])
-            res = run_npu_stress_test(iterations=iters)
-            self.send_json(res)
+        if path == "/api/hdc/query":
+            q = query.get("q", [""])[0]
+            top_k = int(query.get("top_k", [5])[0])
+            from lunar_core.hdc import HyperdimensionalMemoryEngine
+
+            engine = HyperdimensionalMemoryEngine()
+            engine.load_from_file(".lunar_hdc_memory.json")
+            res = engine.query(q, top_k=top_k)
+            self.send_json([r.to_dict() for r in res])
+            return
+
+        if path == "/api/hdc/stats":
+            from lunar_core.hdc import HyperdimensionalMemoryEngine
+
+            engine = HyperdimensionalMemoryEngine()
+            engine.load_from_file(".lunar_hdc_memory.json")
+            self.send_json(engine.stats())
+            return
+
+        if path == "/api/diffusion":
+            prompt = query.get("prompt", ["circuit diagram"])[0]
+            steps = int(query.get("steps", [4])[0])
+            diff = self.get_diffusion()
+            res = diff.sketch(prompt=prompt, steps=steps)
+            d = res.to_dict()
+            try:
+                p = Path(res.image_path)
+                if p.exists():
+                    d["image_data"] = "data:image/png;base64," + base64.b64encode(p.read_bytes()).decode("utf-8")
+            except Exception:
+                pass
+            self.send_json(d)
+            return
+
+        if path == "/api/audio/loopback":
+            duration = float(query.get("duration", [1.0])[0])
+            vad_thresh = float(query.get("threshold", [0.005])[0])
+            res = self.get_audio().transcribe_loopback(duration_s=duration, vad_threshold=vad_thresh)
+            self.send_json(res.to_dict())
+            return
+
+        if path == "/api/screen/probe":
+            import ctypes, os
+            import numpy as np
+            diag = {
+                "session_id": None,
+                "window_station": None,
+                "desktop_name": None,
+                "is_sandbox_desktop": False,
+                "dxgi_available": False,
+                "capture_method": None,
+                "latency_ms": 0.0,
+                "resolution": [0, 0],
+                "nonzero_pixels": 0,
+                "mean_brightness": 0.0,
+                "thumbnail": None,
+                "diagnostic_verdict": "",
+            }
+            if sys.platform == "win32":
+                try:
+                    u32 = ctypes.windll.user32
+                    k32 = ctypes.windll.kernel32
+                    sess = ctypes.c_ulong()
+                    k32.ProcessIdToSessionId(os.getpid(), ctypes.byref(sess))
+                    diag["session_id"] = sess.value
+
+                    hw = u32.GetProcessWindowStation()
+                    buf = ctypes.create_unicode_buffer(256)
+                    u32.GetUserObjectInformationW(hw, 2, buf, ctypes.sizeof(buf), None)
+                    diag["window_station"] = buf.value
+
+                    hd = u32.GetThreadDesktop(k32.GetCurrentThreadId())
+                    buf2 = ctypes.create_unicode_buffer(256)
+                    u32.GetUserObjectInformationW(hd, 2, buf2, ctypes.sizeof(buf2), None)
+                    desk_name = buf2.value
+                    diag["desktop_name"] = desk_name
+                    diag["is_sandbox_desktop"] = "exebox" in desk_name.lower() or desk_name.lower() != "default"
+                except Exception:
+                    pass
+
+            from lunar_core.dxgi_capture import DXGICaptureEngine
+            cap = DXGICaptureEngine()
+            frame = cap.capture_frame()
+            diag["dxgi_available"] = cap.is_dxgi_available
+            diag["capture_method"] = frame.method
+            diag["latency_ms"] = round(frame.latency_ms, 2)
+            diag["resolution"] = [frame.width, frame.height]
+
+            arr = frame.to_rgb_array()
+            nnz = int(np.count_nonzero(arr))
+            diag["nonzero_pixels"] = nnz
+            diag["mean_brightness"] = round(float(np.mean(arr)), 2)
+
+            if diag["is_sandbox_desktop"] and nnz == 0:
+                diag["diagnostic_verdict"] = f"SANDBOX_ISOLATED: Running on non-interactive desktop ({diag['desktop_name']}). Windows DWM blocks screen capture."
+            elif nnz > 0:
+                diag["diagnostic_verdict"] = "ACTIVE_CAPTURE: Captured live desktop pixels."
+            else:
+                diag["diagnostic_verdict"] = "ZERO_FRAME: Frame buffer is 100% black."
+
+            try:
+                pil_im = frame.to_pil()
+                pil_im.thumbnail((480, 270))
+                buf_thumb = io.BytesIO()
+                pil_im.save(buf_thumb, format="JPEG", quality=60)
+                diag["thumbnail"] = "data:image/jpeg;base64," + base64.b64encode(buf_thumb.getvalue()).decode("utf-8")
+            except Exception:
+                pass
+
+            self.send_json(diag)
             return
 
         self.send_error(404, "Endpoint not found")
@@ -738,8 +1021,12 @@ class LunarStudioHandler(BaseHTTPRequestHandler):
         if path == "/api/lora/train":
             steps = int(data.get("steps", 20))
             rank = int(data.get("rank", 8))
+            from_logs = bool(data.get("from_logs", False))
             lora = MicroLoRAEngine(rank=rank, engine=self.engine)
-            res = lora.benchmark_adaptation(steps=steps)
+            if from_logs:
+                res = lora.train_on_session_logs(steps_limit=steps)
+            else:
+                res = lora.benchmark_adaptation(steps=steps)
             self.send_json(res)
             return
 
@@ -797,6 +1084,113 @@ class LunarStudioHandler(BaseHTTPRequestHandler):
             })
             return
 
+        if path == "/api/hdc/store":
+            from lunar_core.hdc import HyperdimensionalMemoryEngine
+
+            key = data.get("key", f"hdc_{int(time.time()*1000)}")
+            text = data.get("text", "")
+            meta = data.get("metadata", {})
+            engine = HyperdimensionalMemoryEngine()
+            mem_path = Path(".lunar_hdc_memory.json")
+            engine.load_from_file(mem_path)
+            engine.add(key, text, metadata=meta)
+            engine.save_to_file(mem_path)
+            self.send_json({"status": "stored", "key": key, "stats": engine.stats()})
+            return
+
+        if path == "/api/diffusion":
+            prompt = data.get("prompt", "circuit diagram")
+            steps = int(data.get("steps", 4))
+            diff = self.get_diffusion()
+            res = diff.sketch(prompt=prompt, steps=steps)
+            d = res.to_dict()
+            try:
+                p = Path(res.image_path)
+                if p.exists():
+                    d["image_data"] = "data:image/png;base64," + base64.b64encode(p.read_bytes()).decode("utf-8")
+            except Exception:
+                pass
+            self.send_json(d)
+            return
+
+        if path == "/api/audio/loopback":
+            duration = float(data.get("duration", 1.0))
+            vad_thresh = float(data.get("threshold", 0.005))
+            res = self.get_audio().transcribe_loopback(duration_s=duration, vad_threshold=vad_thresh)
+            self.send_json(res.to_dict())
+            return
+
+        if path == "/api/screen/probe":
+            import ctypes, os
+            import numpy as np
+            diag = {
+                "session_id": None,
+                "window_station": None,
+                "desktop_name": None,
+                "is_sandbox_desktop": False,
+                "dxgi_available": False,
+                "capture_method": None,
+                "latency_ms": 0.0,
+                "resolution": [0, 0],
+                "nonzero_pixels": 0,
+                "mean_brightness": 0.0,
+                "thumbnail": None,
+                "diagnostic_verdict": "",
+            }
+            if sys.platform == "win32":
+                try:
+                    u32 = ctypes.windll.user32
+                    k32 = ctypes.windll.kernel32
+                    sess = ctypes.c_ulong()
+                    k32.ProcessIdToSessionId(os.getpid(), ctypes.byref(sess))
+                    diag["session_id"] = sess.value
+
+                    hw = u32.GetProcessWindowStation()
+                    buf = ctypes.create_unicode_buffer(256)
+                    u32.GetUserObjectInformationW(hw, 2, buf, ctypes.sizeof(buf), None)
+                    diag["window_station"] = buf.value
+
+                    hd = u32.GetThreadDesktop(k32.GetCurrentThreadId())
+                    buf2 = ctypes.create_unicode_buffer(256)
+                    u32.GetUserObjectInformationW(hd, 2, buf2, ctypes.sizeof(buf2), None)
+                    desk_name = buf2.value
+                    diag["desktop_name"] = desk_name
+                    diag["is_sandbox_desktop"] = "exebox" in desk_name.lower() or desk_name.lower() != "default"
+                except Exception:
+                    pass
+
+            from lunar_core.dxgi_capture import DXGICaptureEngine
+            cap = DXGICaptureEngine()
+            frame = cap.capture_frame()
+            diag["dxgi_available"] = cap.is_dxgi_available
+            diag["capture_method"] = frame.method
+            diag["latency_ms"] = round(frame.latency_ms, 2)
+            diag["resolution"] = [frame.width, frame.height]
+
+            arr = frame.to_rgb_array()
+            nnz = int(np.count_nonzero(arr))
+            diag["nonzero_pixels"] = nnz
+            diag["mean_brightness"] = round(float(np.mean(arr)), 2)
+
+            if diag["is_sandbox_desktop"] and nnz == 0:
+                diag["diagnostic_verdict"] = f"SANDBOX_ISOLATED: Running on non-interactive desktop ({diag['desktop_name']}). Windows DWM blocks screen capture."
+            elif nnz > 0:
+                diag["diagnostic_verdict"] = "ACTIVE_CAPTURE: Captured live desktop pixels."
+            else:
+                diag["diagnostic_verdict"] = "ZERO_FRAME: Frame buffer is 100% black."
+
+            try:
+                pil_im = frame.to_pil()
+                pil_im.thumbnail((480, 270))
+                buf_thumb = io.BytesIO()
+                pil_im.save(buf_thumb, format="JPEG", quality=60)
+                diag["thumbnail"] = "data:image/jpeg;base64," + base64.b64encode(buf_thumb.getvalue()).decode("utf-8")
+            except Exception:
+                pass
+
+            self.send_json(diag)
+            return
+
         self.send_error(404, "Endpoint not found")
 
     def send_bytes(self, content: bytes, content_type: str):
@@ -840,7 +1234,21 @@ def run_studio(host: str = "127.0.0.1", port: int = 8899, open_browser: bool = T
             ex_type, _, _ = sys.exc_info()
             if ex_type in (ConnectionResetError, ConnectionAbortedError, BrokenPipeError):
                 return
-            super().handle_error(request, client_address)
+    # Start Named-Pipe IPC server for <15µs PreToolUse interception
+    try:
+        from lunar_core.hooks.silicon_guard_pipe import get_pipe_server
+        get_pipe_server().start_background()
+        print("[*] Silicon Guard Named-Pipe listening on: \\\\.\\pipe\\lunar_silicon_guard")
+    except Exception as e:
+        print(f"[!] Warning: Could not start Named-Pipe server: {e}")
+
+    # Preload repo code indexer in background
+    try:
+        import threading
+        from lunar_core.indexer import get_repo_indexer
+        threading.Thread(target=get_repo_indexer, daemon=True).start()
+    except Exception:
+        pass
 
     server = ReusableThreadingServer((host, port), LunarStudioHandler)
     url = f"http://{host}:{port}"
