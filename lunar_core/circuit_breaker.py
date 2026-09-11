@@ -1,13 +1,24 @@
 """
-Recipe 6: Hardware-Gated Safety Circuit Breaker
-Intercepts speculative agent shell commands and tool calls in <3.7ms before OS execution.
-Combines deterministic regex DFAs with physical NPU-compiled neural hazard classification.
+Pre-execution shell command guard.
 
-REALITY STATUS:
-  - Step 1: Deterministic regex DFA (sub-0.1ms immediate halt on catastrophic patterns)
-  - Step 2: Lexical keyword heuristic audit
-  - Step 3: REAL NPU silicon neural hazard classifier (OpenVINO MLP running on NPU)
-  - Latency: Real perf_counter() measurements
+Screens proposed agent shell commands against a deterministic blocklist before
+they reach the OS.
+
+REALITY STATUS (audited 2026-09-11):
+  - Stage 1: Aho-Corasick substring blocklist over known-catastrophic commands.
+  - Stage 2: Regex rules for spacing/flag-order variants Stage 1 cannot catch.
+  - Stage 3: Lexical keyword heuristics.
+  - Stage 4: An OpenVINO MLP that runs on the NPU. ITS WEIGHTS ARE UNTRAINED
+    (np.random, seed 42). Measured output is the constant 0.0474 for every
+    input tested, i.e. it has zero discriminative power. It is therefore
+    ADVISORY ONLY and is excluded from the verdict. See HAZARD_MODEL_IS_TRAINED.
+
+SCOPE AND LIMITS — read before relying on this:
+  This is a deterministic blocklist, NOT a security boundary. It stops known
+  literal spellings of catastrophic commands. It does not and cannot stop an
+  adversary, obfuscation, base64/encoded payloads, indirection through a
+  script file, or any destructive command not enumerated below. Treat it as a
+  seatbelt against agent slips, never as a sandbox.
 """
 
 from __future__ import annotations
@@ -24,6 +35,12 @@ import openvino.opset13 as ops
 from lunar_core.engine import LunarNPUEngine
 
 
+# Set to True only when `table`, W1 and W2 below are loaded from weights that
+# were actually fit to a labelled corpus of shell commands. While this is False,
+# the model's output MUST NOT influence any verdict.
+HAZARD_MODEL_IS_TRAINED = False
+
+
 def build_hazard_classifier_openvino(
     seq_len: int = 16,
     d_emb: int = 64,
@@ -31,10 +48,14 @@ def build_hazard_classifier_openvino(
     vocab_size: int = 8192,
 ) -> ov.Model:
     """
-    Builds a real binary neural hazard classifier as a pure OpenVINO graph.
+    Builds an UNTRAINED binary classifier graph as a pure OpenVINO model.
     Architecture: Token Gather -> Mean Pool -> Dense(d_hid) -> ReLU -> Dense(1) -> Sigmoid
 
-    Compiles to Intel NPU for hardware-gated execution.
+    WARNING: W1 and W2 are np.random values that were never fit to data, and the
+    output bias is -3.0. Measured behaviour is a near-constant 0.0474 regardless
+    of input. This graph exercises the NPU compile/infer path; it does not
+    classify anything. Do not gate safety decisions on its output until
+    HAZARD_MODEL_IS_TRAINED is True.
     """
     input_ids = ops.parameter([1, seq_len], ov.Type.i64, name="input_ids")
 
@@ -82,23 +103,56 @@ def build_hazard_classifier_openvino(
 
 
 class SiliconCircuitBreaker:
-    """Sub-3.7ms hardware safety gate protecting system and environment."""
+    """Deterministic pre-execution command blocklist. Not a security boundary."""
 
-    # Deterministic immediate-halt DFA regex patterns
+    # Regex tier. Catches spacing and flag-order variants that the literal
+    # substring blocklist misses (e.g. "rm  -rf  /", "rm -fr /").
     DANGEROUS_PATTERNS = [
-        re.compile(r"rm\s+-(?:r|f|rf|fr)\s+[/~]", re.IGNORECASE),
-        re.compile(r"Remove-Item.*-Recurse.*(?:System32|Windows|Program\s+Files)", re.IGNORECASE),
+        # Recursive delete of a root-ish path, any flag order/spacing.
+        re.compile(r"\brm\b[^|;&\n]*\s-[a-z]*r[a-z]*f|\brm\b[^|;&\n]*\s-[a-z]*f[a-z]*r", re.IGNORECASE),
+        re.compile(r"\brm\b[^|;&\n]*--recursive[^|;&\n]*--force", re.IGNORECASE),
+        re.compile(r"--no-preserve-root", re.IGNORECASE),
+        # PowerShell recursive delete of a system or home path.
+        re.compile(r"Remove-Item[^|;&\n]*-Recurse", re.IGNORECASE),
+        re.compile(r"\brd\s+/s\b|\brmdir\s+/s\b", re.IGNORECASE),
+        re.compile(r"\bdel\b[^|;&\n]*/s\b", re.IGNORECASE),
+        # Destructive SQL.
         re.compile(r"DROP\s+(?:DATABASE|TABLE|SCHEMA)", re.IGNORECASE),
         re.compile(r"TRUNCATE\s+TABLE", re.IGNORECASE),
-        re.compile(r":\(\)\s*\{\s*:\s*\|\s*:\s*&\s*\}\s*;", re.IGNORECASE),  # Fork bomb
-        re.compile(r"git\s+push.*(?:--force|-f\b)", re.IGNORECASE),
-        re.compile(r"dd\s+if=.*of=/dev/(?:sd[a-z]|nvme)", re.IGNORECASE),
-        re.compile(r"mkfs\.[a-z0-9]+\s+/dev/", re.IGNORECASE),
-        re.compile(r"format\s+[c-z]:\s+/fs:", re.IGNORECASE),
+        re.compile(r"DELETE\s+FROM\s+\w+\s*(?:;|$)", re.IGNORECASE),  # unqualified DELETE
+        # Fork bomb.
+        re.compile(r":\(\)\s*\{\s*:\s*\|\s*:\s*&\s*\}\s*;", re.IGNORECASE),
+        # History-destroying git.
+        re.compile(r"git\s+push[^|;&\n]*(?:--force\b|-f\b)", re.IGNORECASE),
+        re.compile(r"git\s+reset\s+--hard", re.IGNORECASE),
+        re.compile(r"git\s+clean\s+-[a-z]*[fd]", re.IGNORECASE),
+        # Raw block device writes / filesystem creation.
+        re.compile(r"\bdd\b[^|;&\n]*of=/dev/(?:sd[a-z]|nvme|disk)", re.IGNORECASE),
+        re.compile(r"mkfs(?:\.[a-z0-9]+)?\s+/dev/", re.IGNORECASE),
+        re.compile(r"\bformat\s+[c-z]:", re.IGNORECASE),
+        re.compile(r"diskpart\b[^|;&\n]*clean", re.IGNORECASE),
+        # Pipe-from-network straight into an interpreter.
+        re.compile(r"(?:curl|wget|iwr|Invoke-WebRequest)[^|;&\n]*\|\s*(?:ba|z|k|)sh\b", re.IGNORECASE),
+        re.compile(r"(?:curl|wget)[^|;&\n]*\|\s*(?:sudo\s+)?(?:python|perl|ruby|node)\b", re.IGNORECASE),
+        re.compile(r"Invoke-Expression[^|;&\n]*(?:DownloadString|Invoke-WebRequest|New-Object\s+Net)", re.IGNORECASE),
+        # Reverse shells.
+        re.compile(r"/dev/tcp/\d", re.IGNORECASE),
+        re.compile(r"\bnc\b[^|;&\n]*-e\s*/bin/(?:ba)?sh", re.IGNORECASE),
+        # Python one-liners that delete trees.
+        re.compile(r"rmtree\s*\(", re.IGNORECASE),
+        re.compile(r"os\.remove|os\.unlink|os\.rmdir", re.IGNORECASE),
+        # Credential exfiltration paths.
+        re.compile(r"\.ssh/id_(?:rsa|ed25519)|\.aws/credentials|\.env\b[^|;&\n]*\|", re.IGNORECASE),
+        # Privilege / defence changes.
+        re.compile(r"Set-MpPreference[^|;&\n]*Disable", re.IGNORECASE),
+        re.compile(r"\bchmod\s+(?:-R\s+)?777\s+/", re.IGNORECASE),
+        re.compile(r"\bicacls\b[^|;&\n]*/grant[^|;&\n]*Everyone", re.IGNORECASE),
     ]
 
     SUSPICIOUS_KEYWORDS = [
-        "eval(", "exec(", "shutil.rmtree('/'", "base64.b64decode", "Invoke-Expression", "iex "
+        "eval(", "exec(", "base64.b64decode", "Invoke-Expression", "iex ",
+        "FromBase64String", "-EncodedCommand", "-enc ", "bypass -nop",
+        "certutil -urlcache", "bitsadmin /transfer",
     ]
 
     def __init__(
@@ -132,14 +186,13 @@ class SiliconCircuitBreaker:
 
     def audit_command(self, command_str: str) -> Dict[str, Any]:
         """
-        Audits a proposed shell command with real two-tier protection:
-        1. Sub-0.15ms deterministic regex DFA scan
-        2. Real NPU-compiled neural hazard classification
+        Audit a command against the regex tier and keyword heuristics.
+        The NPU model runs but does not affect the verdict while untrained.
         """
         t0 = time.perf_counter()
         clean_cmd = command_str.strip()
 
-        # Step 1: Deterministic regex DFA scan (< 0.15 ms)
+        # Step 1: Regex tier
         for pattern in self.DANGEROUS_PATTERNS:
             if pattern.search(clean_cmd):
                 lat = (time.perf_counter() - t0) * 1000.0
@@ -155,7 +208,7 @@ class SiliconCircuitBreaker:
                 self.audit_log.append(result)
                 return result
 
-        # Step 2: Heuristic keyword hazard scoring (< 0.2 ms)
+        # Step 2: Keyword heuristics
         heuristic_score = 0.0
         matched_heuristics = []
         for kw in self.SUSPICIOUS_KEYWORDS:
@@ -163,21 +216,20 @@ class SiliconCircuitBreaker:
                 heuristic_score += 0.35
                 matched_heuristics.append(kw)
 
-        # Step 3: REAL Silicon Neural Classifier (OpenVINO on NPU)
-        input_ids = self._tokenize(clean_cmd)
-        self.classifier_req.set_tensor(
-            self.classifier_compiled.inputs[0],
-            ov.Tensor(input_ids),
-        )
-        self.classifier_req.infer()
-        raw_prob = float(self.classifier_req.get_output_tensor(0).data.flatten()[0])
+        # Step 3: NPU model inference — ADVISORY ONLY while untrained.
+        raw_prob = self._neural_advisory(clean_cmd)
 
-        # Combine heuristic + NPU neural probability
-        hazard_prob = float(min(max(heuristic_score, raw_prob), 1.0))
+        # Verdict is driven by deterministic signals only. The untrained model
+        # contributes nothing; folding its constant output in would only ever
+        # raise the floor on every command equally.
+        hazard_prob = float(min(heuristic_score, 1.0))
+        if HAZARD_MODEL_IS_TRAINED and raw_prob is not None:
+            hazard_prob = float(min(max(hazard_prob, raw_prob), 1.0))
+
         verdict = "BLOCKED" if hazard_prob >= self.hazard_threshold else "ALLOWED"
-        reason = "Silicon neural safety pass" if verdict == "ALLOWED" else (
+        reason = (
             f"Suspicious execution markers: {matched_heuristics}" if matched_heuristics
-            else f"NPU neural classifier flagged elevated hazard ({hazard_prob:.2f})"
+            else "No deterministic rule matched (NOT a safety guarantee)"
         )
 
         lat = (time.perf_counter() - t0) * 1000.0
@@ -188,11 +240,29 @@ class SiliconCircuitBreaker:
             "latency_ms": lat,
             "command": clean_cmd,
             "timestamp": time.time(),
-            "tier": "NPU_NEURAL_CLASSIFIER",
+            "tier": "HEURISTIC_KEYWORD" if matched_heuristics else "NO_RULE_MATCHED",
             "device": self.engine.device,
+            "neural_advisory": raw_prob,
+            "neural_model_trained": HAZARD_MODEL_IS_TRAINED,
         }
         self.audit_log.append(result)
         return result
+
+    def _neural_advisory(self, clean_cmd: str) -> Optional[float]:
+        """
+        Run the NPU model and return its scalar output, or None on failure.
+        The value is recorded for observability only; see HAZARD_MODEL_IS_TRAINED.
+        """
+        try:
+            input_ids = self._tokenize(clean_cmd)
+            self.classifier_req.set_tensor(
+                self.classifier_compiled.inputs[0],
+                ov.Tensor(input_ids),
+            )
+            self.classifier_req.infer()
+            return float(self.classifier_req.get_output_tensor(0).data.flatten()[0])
+        except Exception:
+            return None
 
     def get_audit_summary(self) -> Dict[str, Any]:
         """Summarize audit history."""
@@ -225,9 +295,14 @@ class AhoCorasickNode:
 
 class AhoCorasickDFA:
     """
-    Stage 1 Deterministic Finite Automaton (DFA) using Aho-Corasick string matching.
-    Guarantees sub-2µs linear-time O(|a|) scan over catastrophic shell commands
-    with 0% catastrophic false negative rate.
+    Stage 1 literal-substring blocklist using Aho-Corasick matching.
+
+    Single O(len(text)) pass over the command looking for any enumerated
+    catastrophic spelling. It cannot have false POSITIVES beyond the literal
+    strings below, and it has a very high false-NEGATIVE rate by construction:
+    anything not spelled exactly like an entry below passes. The regex tier in
+    SiliconCircuitBreaker.DANGEROUS_PATTERNS exists to cover the common
+    spacing/flag-order variants; neither tier is exhaustive.
     """
 
     DEFAULT_CATASTROPHIC_PATTERNS = [
@@ -292,7 +367,7 @@ class AhoCorasickDFA:
 
     def scan(self, text: str) -> List[str]:
         """
-        Execute single-pass O(|text|) scan in < 2.0 microseconds.
+        Single-pass O(len(text)) scan.
         Returns list of matched catastrophic pattern strings.
         """
         matched: List[str] = []
@@ -314,10 +389,14 @@ class AhoCorasickDFA:
 
 class DualStageSiliconCircuitBreaker(SiliconCircuitBreaker):
     """
-    Dual-Stage Silicon Circuit Breaker for Autonomous Agents.
-    Stage 1: Sub-2µs Aho-Corasick deterministic DFA automaton (0% false negatives).
-    Stage 2: Sub-2ms NPU neural hazard classifier on dedicated NCE Tile 5.
-    Interception Latency: < 2µs on critical halt; < 2.0ms on full neural pass.
+    Pre-execution command guard combining a literal blocklist with regex rules.
+
+    Stage 1: Aho-Corasick literal blocklist.
+    Stage 2: Regex rules for spelling variants.
+    Stage 3: Keyword heuristics.
+    Stage 4: NPU model inference, ADVISORY ONLY (untrained; see module docstring).
+
+    Deterministic blocklist, not a security boundary. See module docstring.
     """
 
     def __init__(
@@ -331,16 +410,13 @@ class DualStageSiliconCircuitBreaker(SiliconCircuitBreaker):
 
     def audit_command(self, command_str: str) -> Dict[str, Any]:
         """
-        Audits command with dual-stage silicon pipeline:
-        Stage 1: Sub-2µs Aho-Corasick DFA check
-        Stage 2: Sub-2ms NPU neural hazard evaluation
+        Audit a command through the blocklist, regex and heuristic tiers.
+        The NPU model runs but does not affect the verdict while untrained.
         """
         t0 = time.perf_counter()
         clean_cmd = command_str.strip()
 
-        # -------------------------------------------------------------
-        # STAGE 1: Aho-Corasick Deterministic DFA (<2.0µs)
-        # -------------------------------------------------------------
+        # STAGE 1: Aho-Corasick literal blocklist
         matches = self.dfa.scan(clean_cmd)
         if matches:
             lat_ms = (time.perf_counter() - t0) * 1000.0
@@ -375,9 +451,7 @@ class DualStageSiliconCircuitBreaker(SiliconCircuitBreaker):
                 self.audit_log.append(result)
                 return result
 
-        # -------------------------------------------------------------
-        # STAGE 2: NPU Neural Hazard Classifier (NCE Tile 5, <2.0ms)
-        # -------------------------------------------------------------
+        # STAGE 3: Keyword heuristics, then STAGE 4 advisory model
         heuristic_score = 0.0
         matched_heuristics = []
         for kw in self.SUSPICIOUS_KEYWORDS:
@@ -385,19 +459,16 @@ class DualStageSiliconCircuitBreaker(SiliconCircuitBreaker):
                 heuristic_score += 0.35
                 matched_heuristics.append(kw)
 
-        input_ids = self._tokenize(clean_cmd)
-        self.classifier_req.set_tensor(
-            self.classifier_compiled.inputs[0],
-            ov.Tensor(input_ids),
-        )
-        self.classifier_req.infer()
-        raw_prob = float(self.classifier_req.get_output_tensor(0).data.flatten()[0])
+        raw_prob = self._neural_advisory(clean_cmd)
 
-        hazard_prob = float(min(max(heuristic_score, raw_prob), 1.0))
+        hazard_prob = float(min(heuristic_score, 1.0))
+        if HAZARD_MODEL_IS_TRAINED and raw_prob is not None:
+            hazard_prob = float(min(max(hazard_prob, raw_prob), 1.0))
+
         verdict = "BLOCKED" if hazard_prob >= self.hazard_threshold else "ALLOWED"
-        reason = "Silicon neural safety pass" if verdict == "ALLOWED" else (
+        reason = (
             f"Suspicious execution markers: {matched_heuristics}" if matched_heuristics
-            else f"NPU neural classifier flagged elevated hazard ({hazard_prob:.2f})"
+            else "No deterministic rule matched (NOT a safety guarantee)"
         )
 
         lat_ms = (time.perf_counter() - t0) * 1000.0
@@ -408,8 +479,10 @@ class DualStageSiliconCircuitBreaker(SiliconCircuitBreaker):
             "latency_ms": round(lat_ms, 3),
             "command": clean_cmd,
             "timestamp": time.time(),
-            "tier": "NPU_NEURAL_CLASSIFIER",
+            "tier": "HEURISTIC_KEYWORD" if matched_heuristics else "NO_RULE_MATCHED",
             "device": self.engine.device,
+            "neural_advisory": raw_prob,
+            "neural_model_trained": HAZARD_MODEL_IS_TRAINED,
         }
         self.audit_log.append(result)
         return result
