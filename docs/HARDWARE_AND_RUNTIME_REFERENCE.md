@@ -553,3 +553,64 @@ models running alongside a foreground LLM on CPU or GPU**:
 And the honest framing for all of it is energy and foreground preservation, not
 latency. Which means it has to be measured on those axes - see section 5 - and
 nothing in this repo has been yet.
+
+---
+
+## 12. REFUTED: the NPU as a deterministic "deadline engine" **[MEASURED]**
+
+Recorded because a tested-and-failed hypothesis is worth as much as a confirmed
+one, and because this one is attractive enough that someone will propose it again.
+
+**The hypothesis.** An NPU runs a statically compiled graph on a software-managed
+scratchpad, with no cache hierarchy, no dynamic scheduling, and no contention
+from the desktop compositor. That should give it a tight tail latency even when
+the machine is busy - making it the only engine on the chip that can promise a
+deadline. That would be a real product claim (real-time audio, frame-locked
+work, live captioning) and nobody markets NPUs on it.
+
+**The test.** 512-dim 4-layer MLP, batch 1, 1200 iterations, p99.9 measured with
+all three devices compiled and warmed *before* load was applied. Load was 9
+separate processes: one saturating the GPU, eight spinning CPU cores.
+
+Quiet:
+
+| dev | median | p99.9 | p99.9/median |
+| :-- | --: | --: | --: |
+| CPU | 0.046 ms | 0.139 ms | 3.0x |
+| GPU | 0.078 ms | 0.189 ms | 2.4x |
+| NPU | 0.256 ms | 0.682 ms | 2.7x |
+
+Loaded (GPU saturated + all 8 CPU cores busy):
+
+| dev | median | p99.9 | p99.9/median |
+| :-- | --: | --: | --: |
+| CPU | **0.135 ms** | 51.986 ms | **384x** |
+| GPU | 4.682 ms | 15.432 ms | 3.3x |
+| NPU | 2.291 ms | **14.896 ms** | 6.5x |
+
+**Verdict: refuted.** On a quiet machine the NPU has no determinism advantage at
+all (2.7x vs 2.4x and 3.0x). Under load its p99.9 degrades 22x, from 0.682 ms to
+14.9 ms - statistically indistinguishable from the GPU's 15.4 ms. There is no
+deadline guarantee here.
+
+**Why, and this is the deepest constraint found in this audit:** you cannot
+reach the NPU without a CPU core. Every inference needs a host thread to submit
+the request and wait on it. When all cores are saturated the NPU becomes
+effectively unreachable regardless of how idle the silicon is. This also caps
+the "offload to free the CPU" argument - the submission path is CPU work.
+
+A related practical note: an earlier version of this experiment compiled inside
+the measurement loop, and **NPU compilation failed outright** under full CPU
+saturation, because `vpux-compiler` itself runs on the host
+(`COMPILATION_NUM_THREADS = 8`). Compile early and cache the blob; never compile
+on a loaded machine.
+
+**What did survive.** Two narrower but real findings:
+
+1. Under heavy load the NPU's median (2.29 ms) is **2x better than the GPU's**
+   (4.68 ms), with comparable tails. If the GPU is already contended - a game, a
+   call, a render - the NPU is the better place for auxiliary inference.
+2. The CPU keeps an excellent median under load (0.135 ms) but its p99.9 blows
+   out to **52 ms**. So for anything latency-sensitive, the CPU is the fastest
+   choice on average and the worst choice at the tail. That tradeoff is worth
+   knowing and is not what anyone assumes.
