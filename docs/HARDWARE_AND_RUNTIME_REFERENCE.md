@@ -1427,3 +1427,117 @@ For a 16 kHz audio stream at 10 ms hops (100 frames/s), chunk 256 is 2.56 s of
 latency -- fine for event detection and activity classification, useless for
 interactive voice. That latency budget is the main design constraint this
 architecture imposes, and it should drive which use cases are chosen.
+
+---
+
+## 20. The NPU as a context densifier for coding agents **[MEASURED 2026-09-12]**
+
+A reframing worth testing: stop asking the NPU to *generate*, and ask it to
+continuously *compress* a corpus so the expensive cloud model has less to read.
+
+This is the right shape for the silicon, and the earlier measurements already
+point at it:
+
+- **BGE-base, an embedding model, is one of only two models where the NPU beats
+  the GPU** (15.1: 4.29 ms vs 4.94 ms, and 7.3x faster than CPU).
+- Embedding is fixed-shape, batchable, endlessly repeatable (18.6).
+- NPU inference costs 0.40 ms of host CPU against the GPU's 3.95 ms (15.4), so
+  it can run during a build without stealing cycles.
+
+### 20.1 Indexing this repository, measured
+
+Corpus: every `.py`, `.js` and `.md` file in `jolly-meitner`, chunked at ~40
+lines. Batch 16, seq 64, BGE-base int8.
+
+| device | wall time | chunks/s | host CPU used | cores |
+| :-- | --: | --: | --: | --: |
+| CPU | 19.01 s | 27 | 34.66 s | **1.82** |
+| GPU | **0.56 s** | 918 | 0.52 s | **0.92** |
+| NPU | 1.91 s | 269 | **0.08 s** | **0.04** |
+
+**The NPU indexes the whole repository in 1.9 seconds using 4% of one core.**
+
+Against the CPU: 10x faster and **444x less host CPU**. Against the GPU: 3.4x
+slower in wall-clock, but the GPU burns a *full core* to do it while the NPU
+uses a twenty-fifth of one.
+
+For a background task that must not disturb a build, that trade is the whole
+argument.
+
+### 20.2 Incremental re-index is effectively free
+
+| event | cost on NPU |
+| :-- | --: |
+| one file saved (~8 chunks) | **29.8 ms** |
+| continuous watch at 2 saves/second | **6% duty cycle** |
+
+A live semantic index of a working repository costs essentially nothing.
+
+### 20.3 But retrieval quality is poor, and that is the real blocker
+
+Speed is worthless if the index does not answer questions. Tested with six
+realistic queries against 560 Python chunks, mask-aware mean pooling, cosine
+top-3:
+
+| query | expected module in top 3? |
+| :-- | :-- |
+| where are dangerous shell commands blocked? | **yes** |
+| how is the NPU device selected and model compiled? | no |
+| computing a mel spectrogram filterbank from audio | no |
+| the HTTP endpoint that serves telemetry | no |
+| state space model recurrence step | no |
+| low rank adapter gradient computation | **yes** |
+
+**2 of 6.** Similarity across the corpus spans [0.536, 1.000] with a standard
+deviation of only **0.049** -- everything bunched near 0.6, which is weak
+discrimination rather than no signal at all.
+
+> An earlier version of this test scored 0 of 6 and returned identical results
+> for every query. That was a bug in the harness, not the model: the attention
+> mask was set to all-ones, so a short query was mostly padding and every query
+> vector collapsed onto the pad embedding. Mask-aware pooling fixed it. Any
+> future embedding work must mask padding before pooling.
+
+Three causes, in order of likely impact:
+
+1. **BGE-base is trained on natural language, not code.** Asking a prose
+   embedder to represent 30 lines of Python is the core mismatch.
+2. **Chunking is naive.** Fixed 30-line windows cut functions in half.
+   `lunar_core/indexer.py` already walks the AST and could chunk on function and
+   class boundaries instead.
+3. Only 560 chunks were embedded for the accuracy test.
+
+### 20.4 The constraint chain, and the way through it
+
+The bind is real and worth stating plainly:
+
+- The NPU only wins on **Intel's pre-quantised INT8 models** (15.1)
+- You **cannot reliably quantise your own** -- `nncf.quantize` fails to compile
+  on this NPU (15.2)
+- So you are limited to whatever Intel happened to publish
+
+Checking what that is: **`OpenVINO/Qwen3-Embedding-0.6B-int8-ov` exists on the
+OpenVINO hub**, alongside `bge-base-en-v1.5-int8-ov` and an int8 export path for
+`nomic-embed-text-v1.5`. Qwen3-Embedding is a substantially stronger and more
+recent model than BGE-base and handles code far better.
+
+That is the next experiment, and it is cheap: swap the model, chunk on AST
+boundaries via `indexer.py`, re-run the six queries. If retrieval goes from 2/6
+to 5/6, the densifier idea is viable and the hardware side is already proven.
+
+### 20.5 Why this is the most promising direction found
+
+It is the only proposal in this document where every component has been
+measured working rather than assumed:
+
+| requirement | status |
+| :-- | :-- |
+| NPU beats GPU on the workload | measured, 5/5 (15.1) |
+| Costs almost no host CPU | measured, 0.04 cores (20.1) |
+| Incremental updates are free | measured, 6% duty (20.2) |
+| A better model exists, pre-quantised | confirmed on the OpenVINO hub |
+| AST chunking already written | `lunar_core/indexer.py` |
+| MCP transport to agents already built | `lunar_core/mcp_server.py`, 14 tools |
+| Retrieval quality | **unproven, 2/6 -- the open question** |
+
+Everything except the last row is done. The last row is one experiment.
