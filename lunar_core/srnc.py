@@ -149,7 +149,13 @@ class WindowsNamedRingBufferShm:
         try:
             self.mm = mmap.mmap(-1, self.capacity, tagname=self.name, access=mmap.ACCESS_WRITE)
         except Exception:
-            self.mm = mmap.mmap(-1, self.capacity)
+            try:
+                self.mm = mmap.mmap(-1, self.capacity)
+            except Exception:
+                self.capacity = min(self.capacity, 4 * 1024 * 1024)
+                self.channel_capacity = self.capacity // 2
+                self.mm = mmap.mmap(-1, self.capacity)
+
 
         for ch in [CHANNEL_REQUEST, CHANNEL_RESPONSE]:
             ch_offset = ch * self.channel_capacity

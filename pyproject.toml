@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lunar-core"
-version = "2.1.0"
+version = "2.3.0"
 description = "Intel Lunar Lake NPU Ambient Intelligence & Edge Neural Processing Platform"
 readme = "README.md"
 requires-python = ">=3.10"

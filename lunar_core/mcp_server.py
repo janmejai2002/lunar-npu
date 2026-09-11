@@ -168,6 +168,16 @@ TOOLS_DEFINITIONS = [
                     "type": "string",
                     "description": "Optional audio filepath. If omitted, captures microphone stream.",
                 },
+                "loopback": {
+                    "type": "boolean",
+                    "description": "Capture live desktop speaker output via Windows WASAPI loopback.",
+                    "default": False,
+                },
+                "duration": {
+                    "type": "number",
+                    "description": "Duration in seconds for loopback capture (default 3.0).",
+                    "default": 3.0,
+                },
                 "language": {
                     "type": "string",
                     "description": "Target language code (default en).",
@@ -230,6 +240,45 @@ TOOLS_DEFINITIONS = [
                 },
             },
             "required": ["text"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "lunar_benchmark",
+        "description": "Execute physical Intel NPU stress test and benchmark sustained INT8 TOPS, latency distribution, and thermal impact.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "iterations": {
+                    "type": "integer",
+                    "description": "Number of stress iterations (default 30)",
+                    "default": 30,
+                },
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "lunar_diffuse",
+        "description": "Synthesize a 512x512 visual asset or architecture sketch using heterogeneous NPU CLIP + Arc GPU LCM 4-step diffusion.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "prompt": {
+                    "type": "string",
+                    "description": "Visual prompt or architecture diagram description.",
+                },
+                "steps": {
+                    "type": "integer",
+                    "description": "Number of consistency ODE steps (default 4).",
+                    "default": 4,
+                },
+                "out_path": {
+                    "type": "string",
+                    "description": "Optional output PNG file path.",
+                },
+            },
+            "required": ["prompt"],
             "additionalProperties": False,
         },
     },
@@ -332,28 +381,41 @@ class LunarMCPServer:
             }
 
     def _call_tool(self, name: str, args: Dict[str, Any]) -> str:
-        if name == "lunar_status":
+        # Normalize tool names and aliases
+        alias_map = {
+            "lunar_route": "lunar_route_task",
+            "lunar_audit": "lunar_circuit_breaker_audit",
+            "lunar_memory": "lunar_vector_search" if "query" in args else "lunar_add_memory",
+            "lunar_transcribe": "lunar_audio_transcribe",
+            "lunar_screen": "lunar_vision_analyze",
+            "lunar_lora": "lunar_micro_lora_train",
+            "lunar_mamba": "lunar_mamba_step",
+            "lunar_governor": "lunar_set_power_profile",
+        }
+        resolved_name = alias_map.get(name, name)
+
+        if resolved_name == "lunar_status":
             info = self.engine.get_device_info()
             return json.dumps(info, indent=2)
 
-        elif name == "lunar_mamba_step":
+        elif resolved_name == "lunar_mamba_step":
             steps = int(args.get("steps", 50))
             res = self.mamba.benchmark(num_steps=steps)
             return json.dumps(res, indent=2)
 
-        elif name == "lunar_vector_search":
-            query = args["query"]
+        elif resolved_name == "lunar_vector_search":
+            query = args.get("query", "")
             top_k = int(args.get("top_k", 3))
             results = self.vmem.query(query, top_k=top_k)
             return json.dumps(results, indent=2)
 
-        elif name == "lunar_circuit_breaker_audit":
-            cmd = args["command"]
+        elif resolved_name == "lunar_circuit_breaker_audit":
+            cmd = args.get("command", args.get("cmd", ""))
             verdict = self.cb.audit(cmd)
             return json.dumps(verdict, indent=2)
 
-        elif name == "lunar_add_memory":
-            text = args["text"]
+        elif resolved_name == "lunar_add_memory":
+            text = args.get("text", "")
             meta = args.get("metadata", {})
             entry = self.vmem.add_document(text, metadata=meta)
             return json.dumps({
@@ -362,55 +424,79 @@ class LunarMCPServer:
                 "latency_ms": entry["latency_ms"],
             }, indent=2)
 
-        elif name == "lunar_route_task":
-            prompt = args["prompt"]
+        elif resolved_name == "lunar_route_task":
+            prompt = args.get("prompt", "")
             temp = float(args.get("temperature", 0.1))
             decision = self.router.route(prompt, temperature=temp)
             return json.dumps(decision.to_dict(), indent=2)
 
-        elif name == "lunar_swarm_execute":
+        elif resolved_name == "lunar_swarm_execute":
             if self._swarm is None:
                 self._swarm = LunarSwarm(engine=self.engine, memory=self.vmem)
-            prompt = args["prompt"]
+            prompt = args.get("prompt", "")
             max_tokens = int(args.get("max_tokens", 128))
             res = self._swarm.execute_task(prompt, max_tokens=max_tokens)
             return json.dumps(res.to_dict(), indent=2)
 
-        elif name == "lunar_vision_analyze":
+        elif resolved_name == "lunar_vision_analyze":
             if self._vision is None:
                 self._vision = LunarVisionEngine(engine=self.engine, memory=self.vmem)
             img_path = args.get("image_path")
             res = self._vision.analyze(image_input=img_path)
             return json.dumps(res.to_dict(), indent=2)
 
-        elif name == "lunar_audio_transcribe":
+        elif resolved_name == "lunar_audio_transcribe":
             if self._audio is None:
                 self._audio = LunarAudioEngine(engine=self.engine, memory=self.vmem)
             audio_path = args.get("audio_path")
             lang = args.get("language", "en")
-            res = self._audio.transcribe(audio_source=audio_path, language=lang)
+            loopback = bool(args.get("loopback", False))
+            duration = float(args.get("duration", 3.0))
+            if loopback:
+                res = self._audio.transcribe_loopback(duration_s=duration, language=lang)
+            else:
+                res = self._audio.transcribe(audio_source=audio_path, language=lang)
             return json.dumps(res.to_dict(), indent=2)
 
-        elif name == "lunar_set_power_profile":
+        elif resolved_name == "lunar_set_power_profile":
             prof = args.get("profile", "surge")
             res = self.engine.set_profile(prof)
             return json.dumps(res, indent=2)
 
-        elif name == "lunar_micro_lora_train":
+        elif resolved_name == "lunar_micro_lora_train":
             from lunar_core.micro_lora import MicroLoRAEngine
             steps = int(args.get("steps", 25))
             rank = int(args.get("rank", 8))
+            from_logs = bool(args.get("from_logs", False))
             lora = MicroLoRAEngine(rank=rank, engine=self.engine)
-            res = lora.benchmark_adaptation(steps=steps)
+            if from_logs:
+                res = lora.train_on_session_logs(steps_limit=steps)
+            else:
+                res = lora.benchmark_adaptation(steps=steps)
             return json.dumps(res, indent=2)
 
-        elif name == "lunar_ghost_hud_post":
+        elif resolved_name == "lunar_benchmark":
+            from lunar_core.stress import run_npu_stress_test
+            iters = int(args.get("iterations", 30))
+            res = run_npu_stress_test(iterations=iters)
+            return json.dumps(res, indent=2)
+
+        elif resolved_name == "lunar_ghost_hud_post":
             from lunar_core.ghost_hud import get_ghost_hud
-            text = args["text"]
+            text = args.get("text", "")
             role = args.get("role", "assistant")
             hud = get_ghost_hud()
             res = hud.post_message(text=text, role=role)
             return json.dumps(res, indent=2)
+
+        elif resolved_name == "lunar_diffuse":
+            from lunar_core.diffusion import get_diffusion_engine
+            prompt = args.get("prompt", "")
+            steps = int(args.get("steps", 4))
+            out_path = args.get("out_path", None)
+            diff = get_diffusion_engine()
+            res = diff.sketch(prompt=prompt, steps=steps, out_path=out_path)
+            return json.dumps(res.to_dict(), indent=2)
 
         else:
             raise ValueError(f"Unknown tool: {name}")

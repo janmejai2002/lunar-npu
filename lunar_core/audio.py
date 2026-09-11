@@ -16,14 +16,135 @@ import sys
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
+
+# NumPy 2.x / Python 3.13 compatibility shim for soundcard.mediafoundation (which calls np.fromstring on CFFI buffer)
+if hasattr(np, "fromstring"):
+    _orig_fromstring = np.fromstring
+
+    def _compat_fromstring(string, dtype=float, count=-1, sep="", *, like=None):
+        if sep == "":
+            return np.frombuffer(string, dtype=dtype, count=count)
+        return _orig_fromstring(string, dtype=dtype, count=count, sep=sep, like=like)
+
+    np.fromstring = _compat_fromstring
 
 from lunar_core.engine import LunarNPUEngine
 from lunar_core.vector_memory import LunarVectorMemory
 
 DEFAULT_WHISPER_DIR = Path.home() / ".tools" / "npu" / "models" / "whisper_real"
+
+
+@dataclass
+class VADDecision:
+    is_speech: bool
+    rms_energy: float
+    threshold: float
+    snr_estimate_db: float
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+class EnergyBasedVAD:
+    """
+    Lightweight Voice Activity Detector using Root-Mean-Square (RMS)
+    energy gating and noise-floor adaptation. Prevents waking the Whisper NPU
+    inference engine during periods of acoustic silence or background hum.
+    """
+
+    def __init__(self, energy_threshold: float = 0.005, min_speech_duration_s: float = 0.2):
+        self.threshold = float(energy_threshold)
+        self.min_speech_duration_s = float(min_speech_duration_s)
+        self.noise_floor = 0.001
+
+    def analyze(self, samples: Union[np.ndarray, List[float]], sample_rate: int = 16000) -> VADDecision:
+        arr = np.asarray(samples, dtype=np.float32)
+        if len(arr) == 0:
+            return VADDecision(is_speech=False, rms_energy=0.0, threshold=self.threshold, snr_estimate_db=0.0)
+
+        rms = float(np.sqrt(np.mean(arr ** 2)))
+        if rms < self.threshold * 0.5:
+            self.noise_floor = 0.95 * self.noise_floor + 0.05 * max(1e-6, rms)
+        snr_db = 20.0 * np.log10(max(1e-5, rms) / max(1e-6, self.noise_floor))
+        is_speech = bool(rms >= self.threshold)
+        return VADDecision(
+            is_speech=is_speech,
+            rms_energy=round(rms, 6),
+            threshold=round(self.threshold, 6),
+            snr_estimate_db=round(float(snr_db), 2),
+        )
+
+
+class NativeWASAPILoopbackClient:
+    """
+    Native Windows Core Audio (WASAPI) Loopback Capture Client.
+    Captures live desktop/speaker audio in AUDCLNT_STREAMFLAGS_LOOPBACK mode,
+    downsamples in-memory to 16 kHz mono float32, and interfaces with
+    WASAPILoopbackCapture circular buffer and LunarAudioEngine.
+    """
+
+    def __init__(self, target_sample_rate: int = 16000):
+        self.target_sr = target_sample_rate
+        self.is_supported = sys.platform == "win32"
+        self._loopback_mic = None
+        self._init_loopback()
+
+    def _init_loopback(self) -> None:
+        if not self.is_supported:
+            return
+        try:
+            import soundcard as sc
+
+            speaker = sc.default_speaker()
+            if speaker is not None:
+                self._loopback_mic = sc.get_microphone(id=str(speaker.name), include_loopback=True)
+        except Exception as e:
+            sys.stderr.write(f"[WASAPILoopback] Device query warning: {e}\n")
+            self._loopback_mic = None
+
+    @property
+    def is_available(self) -> bool:
+        return self._loopback_mic is not None
+
+    def capture(self, duration_s: float = 3.0, sample_rate: int = 48000) -> np.ndarray:
+        """
+        Capture `duration_s` of audio from the default speaker loopback endpoint.
+        Returns 16 kHz mono float32 array in range [-1.0, 1.0].
+        """
+        if not self.is_available:
+            num_samples = int(duration_s * self.target_sr)
+            return np.zeros(num_samples, dtype=np.float32)
+
+        num_frames = int(duration_s * sample_rate)
+        try:
+            with self._loopback_mic.recorder(samplerate=sample_rate, channels=2) as rec:
+                raw_data = rec.record(numframes=num_frames)
+
+            # Convert stereo to mono
+            if raw_data.ndim == 2:
+                mono = np.mean(raw_data, axis=-1)
+            else:
+                mono = raw_data
+
+            # Resample to target_sr (default 16000)
+            if sample_rate == 48000 and self.target_sr == 16000:
+                mono_target = mono[::3].astype(np.float32)
+            elif sample_rate != self.target_sr:
+                import scipy.signal
+
+                num_target_samples = int(len(mono) * self.target_sr / sample_rate)
+                mono_target = scipy.signal.resample(mono, num_target_samples).astype(np.float32)
+            else:
+                mono_target = mono.astype(np.float32)
+
+            return np.ascontiguousarray(mono_target)
+        except Exception as e:
+            sys.stderr.write(f"[WASAPILoopback] Capture error: {e}\n")
+            num_samples = int(duration_s * self.target_sr)
+            return np.zeros(num_samples, dtype=np.float32)
 
 
 @dataclass
@@ -38,6 +159,8 @@ class TranscriptionResult:
     is_real_npu: bool
     model_name: str
     memory_doc_id: Optional[str] = None
+    vad_active: bool = False
+    rms_energy: float = 0.0
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -196,6 +319,52 @@ class LunarAudioEngine:
             memory_doc_id=doc_id,
         )
 
+    def transcribe_loopback(
+        self,
+        duration_s: float = 3.0,
+        vad_threshold: float = 0.005,
+        language: str = "en",
+        persist_to_memory: bool = True,
+    ) -> TranscriptionResult:
+        """
+        Record live speaker loopback audio via native WASAPI, gate through Energy-Based VAD,
+        and transcribe through Whisper NPU if acoustic activity is detected.
+        """
+        t0 = time.perf_counter()
+        client = NativeWASAPILoopbackClient(target_sample_rate=16000)
+        samples = client.capture(duration_s=duration_s)
+
+        vad = EnergyBasedVAD(energy_threshold=vad_threshold)
+        vad_res = vad.analyze(samples)
+
+        if not vad_res.is_speech:
+            elapsed_ms = round((time.perf_counter() - t0) * 1000.0, 2)
+            rtf = round(duration_s / max(0.0001, elapsed_ms / 1000.0), 1)
+            return TranscriptionResult(
+                audio_source="wasapi_loopback_stream",
+                text="[Silence / No active speech detected by VAD]",
+                language=language,
+                device=self.device,
+                latency_ms=elapsed_ms,
+                audio_duration_s=round(duration_s, 2),
+                real_time_factor=rtf,
+                is_real_npu=self.engine.is_npu,
+                model_name="OpenVINO/whisper-tiny-ov",
+                memory_doc_id=None,
+                vad_active=False,
+                rms_energy=vad_res.rms_energy,
+            )
+
+        res = self.transcribe(
+            audio_source=samples.tolist(),
+            language=language,
+            persist_to_memory=persist_to_memory,
+        )
+        res.audio_source = "wasapi_loopback_stream"
+        res.vad_active = True
+        res.rms_energy = vad_res.rms_energy
+        return res
+
 
 # ============================================================================
 # PILLAR 3: WASAPI LOOPBACK AUDIO CAPTURE & TELEPROMPTER LATENCY BUDGET
@@ -239,6 +408,21 @@ class WASAPILoopbackCapture:
             idx = (self.head + i) % self.capacity
             self.ring_buffer[idx] = mono_16k[i]
 
+        self.head = (self.head + n_samples) % self.capacity
+        self.total_samples_written += n_samples
+        return n_samples
+
+    def capture_live(self, duration_s: float = 1.0) -> int:
+        """
+        Record real live desktop loopback frames via NativeWASAPILoopbackClient
+        and push them into the ring buffer.
+        """
+        client = NativeWASAPILoopbackClient(target_sample_rate=self.target_sr)
+        mono_16k = client.capture(duration_s=duration_s)
+        n_samples = len(mono_16k)
+        for i in range(n_samples):
+            idx = (self.head + i) % self.capacity
+            self.ring_buffer[idx] = mono_16k[i]
         self.head = (self.head + n_samples) % self.capacity
         self.total_samples_written += n_samples
         return n_samples

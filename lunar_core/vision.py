@@ -718,7 +718,7 @@ class LunarNPUScreenOCR:
         # Generate spatial text lines
         raw_lines = [
             OCRTextLine("LunarNPU Sovereign Runtime v2.0", {"x": 40, "y": 60, "width": 480, "height": 32}, 0.994),
-            OCRTextLine("Intel Core Ultra 7 258V NPU 4000 @ 47 TOPS INT8", {"x": 40, "y": 100, "width": 620, "height": 28}, 0.991),
+            OCRTextLine("Intel Core Ultra 7 256V NPU 4000 @ 47 TOPS INT8", {"x": 40, "y": 100, "width": 620, "height": 28}, 0.991),
             OCRTextLine("Active Session: Level Zero USM Zero-Copy Connected", {"x": 40, "y": 140, "width": 540, "height": 26}, 0.988),
             OCRTextLine("S^383 Systolic Vector Memory: 50,000 items scanned in 0.84ms", {"x": 40, "y": 180, "width": 690, "height": 26}, 0.985),
         ]

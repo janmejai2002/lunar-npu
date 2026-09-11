@@ -5,7 +5,7 @@
 **Repository:** `https://github.com/janmejai2002/lunar-npu`  
 **Working Directory:** `C:\Users\Janmejai\Documents\antigravity\jolly-meitner`  
 **Environment:** Windows 11 • Python 3.13.4 • Windows PowerShell exclusively  
-**Hardware Target:** Intel Lunar Lake (Intel Core Ultra 7 258V / Intel AI Boost NPU 4000 @ 47 TOPS INT8 + Intel Arc 140V Xe2 GPU)  
+**Hardware Target:** Intel Lunar Lake (Intel Core Ultra 7 256V / Intel AI Boost NPU 4000 @ 47 TOPS INT8 + Intel Arc 140V Xe2 GPU)  
 
 ---
 

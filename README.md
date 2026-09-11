@@ -16,14 +16,14 @@
 ---
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Release: v2.1.0](https://img.shields.io/badge/Release-v2.1.0-blueviolet.svg)](https://github.com/janmejai2002/lunar-npu/releases)
-[![Tests: 109/109 Passing](https://img.shields.io/badge/Tests-109%2F109%20Passing-brightgreen.svg?logo=pytest)](tests/)
+[![Release: v2.1.0](https://img.shields.io/badge/Release-v2.3.0-blueviolet.svg)](https://github.com/janmejai2002/lunar-npu/releases)
+[![Tests: 170/170 Passing](https://img.shields.io/badge/Tests-170%2F170%20Passing-brightgreen.svg?logo=pytest)](tests/)
 [![Silicon: Intel Lunar Lake](https://img.shields.io/badge/Silicon-Intel%20Lunar%20Lake%20(47%20TOPS)-orange.svg)](docs/LUNAR_KNOWLEDGE_BASE.md)
 [![NPU Governor: Ambient & Surge](https://img.shields.io/badge/NPU%20Governor-2.5W%20%7C%2047%20TOPS-success.svg)](lunar_core/engine.py)
 [![Micro-LoRA: On-Device Backprop](https://img.shields.io/badge/Micro--LoRA-On--Device%20Backprop-ff69b4.svg)](docs/ON_DEVICE_MICRO_LORA_ON_NPU_SPEC.md)
 [![GhostHUD: Screen-Share Masked](https://img.shields.io/badge/GhostHUD-WDA__EXCLUDEFROMCAPTURE-informational.svg)](docs/DIRECTCOMPOSITION_GHOSTHUD_SPEC.md)
 [![FastMCP 2.0](https://img.shields.io/badge/FastMCP%202.0-Universal%20Pack-8A2BE2.svg)](lunar_core/install_mcp.py)
-[![Research Library](https://img.shields.io/badge/Research-6%20Monographs%20(%3E150%20Pages)-gold.svg)](docs/)
+[![Docs](https://img.shields.io/badge/Docs-Hardware%20Reference-gold.svg)](docs/HARDWARE_AND_RUNTIME_REFERENCE.md)
 [![Python: 3.10–3.13](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg)](pyproject.toml)
 [![llms.txt](https://img.shields.io/badge/llms.txt-available-00D26A.svg)](llms.txt)
 
@@ -78,7 +78,7 @@
 
 ```
 ========================================================================================================================
-                          INTEL LUNAR LAKE SOVEREIGN SILICON TOPOLOGY (PACKAGE 258V)
+                          INTEL LUNAR LAKE SOVEREIGN SILICON TOPOLOGY (PACKAGE 256V)
 ========================================================================================================================
 
    [ ON-PACKAGE LPDDR5X-8533 MEMORY-ON-PACKAGE (MoP) ] ── 32 GB @ 136.5 GB/s Zero-Copy UMA Fabric
@@ -306,7 +306,7 @@ uvx --from lunar-core lunar mcp
 
 ## 📊 Empirical Silicon Benchmark Atlas (v2.1.0)
 
-*Measured deterministically on physical silicon (`Intel Core Ultra 7 258V`, Driver `1004723`, OpenVINO `2026.2.1`):*
+*Measured deterministically on physical silicon (`Intel Core Ultra 7 256V`, Driver `1004723`, OpenVINO `2026.2.1`):*
 
 | Subsystem / Contract | Physical Metric | Measured Value | Specification SLA | Verification Status |
 | :--- | :--- | :--- | :--- | :--- |

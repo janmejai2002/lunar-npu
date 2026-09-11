@@ -10,6 +10,10 @@ from lunar_core.vision import LunarVisionEngine, VisionAnalysisResult, UIElement
 from lunar_core.audio import LunarAudioEngine, TranscriptionResult
 from lunar_core.git_time_machine import GitTimeMachine, CommitSearchResult
 
+from lunar_core.dxgi_capture import DXGICaptureEngine
+from lunar_core.diffusion import LunarHeterogeneousDiffusion
+from lunar_core.hdc import BinaryHypervector, HyperdimensionalMemoryEngine
+
 __all__ = [
     'LunarNPUEngine',
     'LunarVectorMemory',
@@ -28,10 +32,14 @@ __all__ = [
     'TranscriptionResult',
     'GitTimeMachine',
     'CommitSearchResult',
+    'DXGICaptureEngine',
+    'LunarHeterogeneousDiffusion',
+    'HyperdimensionalMemoryEngine',
+    'BinaryHypervector',
     '__version__',
 ]
 
-__version__ = '2.1.0'
+__version__ = '2.3.0'
 
 
 from .srnc import SiliconReflexNeuralCompiler, RowanCSTBridge, CassowarySimplexLayoutSolver, ApcaOklchConvexOptimizer, WindowsNamedRingBufferShm

@@ -28,15 +28,13 @@ env/
 htmlcov/
 .tox/
 
-# Local cache & logs
+# Local cache & compiled model weights
 *.log
-runtime_state.db
 *.pt
 *.onnx
 *.xml
 *.bin
 *.blob
-perpetual_config.yaml
 .lunar_*.json*
 .lunar_*.jsonl
 
@@ -44,45 +42,18 @@ perpetual_config.yaml
 .agents/
 .codegraph/
 .gemini/
-AGENTS.md
-GEMINI.md
-DESIGN.md
 .env
 scratch/
-scripts/
-open-seo/
-penpot/
-frontend/
-agency_hub/
-img2threejs/
-graphify_memory/
+
+# Local index / memory caches (codegraph, graphify)
 .graphify/
-antigravity-perpetual/
-CLI-Anything/
-xlflow/
-term4_gas_app/
-Start-Penpot.bat
-Stop-Penpot.bat
-analyze_gas.py
-clone_gas.py
-test_clasp.py
-xlri_schedule.json
-xlri_schedule.md
-docs/PRD_XL_FLOW_EXTENSION.md
-docs/architecture_diagram.html
-docs/AUTONOMOUS_PERPETUAL_AGENT_INFRASTRUCTURE_100_PAGES.md
-docs/LUNAR_NPU_MASTER_TREATISE_50_PAGES.md
-requirements.txt
-src/agents/
-src/api/
-src/core/
-src/data/
-src/fetch_xlri_classes.py
-src/login_assisted.py
-src/ml/
-src/quota_pool/
-src/reliability/
-src/
-tests/test_hardware_rig/
-tests/test_api_endpoints.py
-tests/test_harness.py
+graphify_memory/
+.codegraph/
+
+# Generated output and capture artifacts
+.lunar_diffusion_outputs/
+*.png
+!lunar_core/web/**/*.png
+
+# Superseded standalone dashboard (see lunar_core/studio.py) — kept in scratch/
+scratch/
