@@ -1541,3 +1541,76 @@ measured working rather than assumed:
 | Retrieval quality | **unproven, 2/6 -- the open question** |
 
 Everything except the last row is done. The last row is one experiment.
+
+---
+
+## 21. WARNING: the NPU can silently destroy a model's output **[MEASURED 2026-09-12]**
+
+20.4 proposed swapping BGE-base for `OpenVINO/Qwen3-Embedding-0.6B-int8-ov`, a
+newer and much stronger embedder, to fix the weak code retrieval. It compiles on
+the NPU, runs without error, and returns plausible non-zero numbers.
+
+**Its output is numerically destroyed.** Same model, same inputs, same OpenVINO
+version, two unrelated sentences:
+
+| device | output range | last-token norms | cos(text A, text B) |
+| :-- | :-- | --: | --: |
+| CPU | min -47.75, max 24.2 | 109.1, 107.1 | **0.5172** |
+| NPU | min -5.21, max 29.02 | 30.6, 30.4 | **0.9999** |
+
+On the CPU the model discriminates properly -- two unrelated texts sit at 0.52
+similarity. On the NPU they sit at **0.9999**: every input collapses to the same
+vector. The activation range is compressed roughly 3.5x (norms 30 vs 108), which
+is the signature of fp16 saturation or clamping inside the compiled graph.
+
+The first retrieval run scored **0 of 6** with all similarities at exactly 0.000
+for this reason.
+
+### 21.1 Why this is the most dangerous failure mode found
+
+It does not error. It does not warn. `compile_model` succeeds, inference
+succeeds, the tensors have the right shape and dtype and contain non-zero
+floats. Everything downstream -- cosine scores, rankings, confidence percentages
+-- looks completely normal and is meaningless.
+
+This is the same class of defect the rest of this audit was written to catch,
+except here it originates in the vendor compiler rather than in project code.
+
+### 21.2 The rule this creates
+
+**Never trust an NPU-compiled model that has not been numerically validated
+against the same model on CPU.** Compiling is not evidence. Running is not
+evidence. The check is cheap:
+
+```python
+# two clearly unrelated inputs; compare NPU against CPU
+cpu_cos = cos(embed_cpu(a), embed_cpu(b))
+npu_cos = cos(embed_npu(a), embed_npu(b))
+assert abs(npu_cos - cpu_cos) < 0.1, "NPU output is degenerate"
+```
+
+If unrelated inputs come back near 1.0 similarity on NPU but not on CPU, the
+model is unusable there regardless of how fast it is.
+
+### 21.3 Revised status of the densifier idea
+
+| model | NPU compiles | NPU numerically valid | retrieval |
+| :-- | :-- | :-- | :-- |
+| bge-base-en-v1.5-int8-ov | yes | **yes** (std 0.049) | weak, 2/6 |
+| Qwen3-Embedding-0.6B-int8-ov | yes | **NO** (cos 0.9999) | unusable |
+
+So the upgrade path proposed in 20.4 is closed. BGE-base remains the only
+embedder verified numerically sound on this NPU, and its code retrieval is weak.
+
+Also worth recording: Qwen3-Embedding took **162 s to compile** and ran at
+**144 ms/chunk** on the NPU, against BGE-base's 3.7 ms -- 39x slower for a 5.5x
+larger model. Even if it were numerically sound, the throughput would not
+support continuous indexing.
+
+Remaining options for the densifier, in order of promise:
+1. Keep BGE-base and fix retrieval on the *chunking and query* side only
+   (AST boundaries, query rewriting, hybrid keyword + vector scoring).
+2. Test other pre-quantised embedders on the hub with the 21.2 validation
+   applied first -- `nomic-embed-text-v1.5` int8 is the next candidate.
+3. Accept the GPU for embedding (0.56 s whole-repo, but a full CPU core) and
+   drop the NPU from this design.
