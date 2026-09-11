@@ -1311,3 +1311,119 @@ inference took 4 ms or 6 ms.
 
 The SSM work in sections 13-16 fits that profile exactly: fixed shape, constant
 state, streaming input, runs forever.
+
+---
+
+## 19. The architecture this NPU actually wants **[MEASURED 2026-09-12]**
+
+Section 18 concluded that no performance model exists for this device. This
+section builds the beginning of one by testing architectures directly, and lands
+on a concrete, measured recommendation.
+
+### 19.1 The relevant mathematics
+
+A discrete state-space model is `h_t = A h_{t-1} + B x_t`, `y_t = C h_t`.
+Unrolling gives
+
+```
+y_t = sum_{k>=0} (C A^k B) x_{t-k}
+```
+
+**An SSM is exactly a convolution** whose kernel is `(CB, CAB, CA^2 B, ...)`.
+The same weights have two exact representations -- recurrent (O(1) per step,
+constant memory, strictly sequential) and convolutional (parallel over a window,
+no carried state). This is the S4 / Mamba-2 duality, and it means "convolutional
+or state-space" is a false choice: you pick the *representation* that suits the
+hardware.
+
+Per-output-token arithmetic, for `d` width, `N` state, `K` kernel, `L` layers:
+
+| architecture | FLOP per token | receptive field |
+| :-- | --: | :-- |
+| SSM recurrent | `2*d*N` | **unbounded** |
+| Dilated TCN | `2*L*K*d^2` | `1+(K-1)(2^L - 1)` |
+| Attention | `2*d*T` | T, and **grows** |
+
+At d=256, N=16, K=3, L=10: SSM = **8,192** FLOP/token, TCN = **3,932,160**.
+**The SSM has a 480x arithmetic advantage, for more context.** On paper it is
+not close.
+
+### 19.2 The measurement inverts it
+
+Measured cost per output token, both architectures, varying chunk size:
+
+| chunk | SSM NPU | SSM CPU | TCN NPU | TCN CPU | TCN/SSM on NPU |
+| --: | --: | --: | --: | --: | --: |
+| 1 | 386.15 us | 47.85 | 272.55 us | 58.20 | 0.71x |
+| 4 | 113.06 | 19.81 | 61.38 | 34.60 | 0.54x |
+| 16 | 46.42 | 8.62 | 18.61 | 19.75 | 0.40x |
+| 64 | 34.97 | 7.51 | 5.77 | 12.89 | 0.17x |
+| **256** | 24.17 | 7.08 | **3.31** | 11.51 | **0.14x** |
+
+**The TCN is 7x FASTER than the SSM on the NPU, despite doing 480x more
+arithmetic.** The gap runs the wrong way and widens with chunk size.
+
+**Why:** the recurrent SSM unrolls into `chunk` sequential, serially-dependent,
+tiny elementwise operations. A systolic array cannot do anything with that. The
+TCN is ten large convolutions -- exactly the shape the hardware exists for.
+
+This is precisely the problem Mamba-2's SSD chunked algorithm was invented to
+solve: convert the sequential scan into parallel matmuls. A naive unrolled
+recurrence is the thing you must not build.
+
+### 19.3 The design rule that replaces "count FLOPs"
+
+> **On this NPU, FLOP count does not predict performance. Parallel graph
+> structure does.** 3.9 MFLOP of convolution beats 8 KFLOP of sequential
+> elementwise work by 7x.
+
+This sharpens 18.6's "convolutions beat matmuls". The real variable is not the
+operator type, it is whether the work is expressible as a few large parallel
+tensor ops or as many small dependent ones.
+
+### 19.4 The concrete recommendation
+
+At chunk 256 the dilated TCN is the first workload in this entire document that
+the NPU wins **on a graph designed here rather than shipped by Intel**:
+
+| | NPU | CPU | GPU |
+| :-- | --: | --: | --: |
+| TCN, chunk 256, d=256, 10 layers | **3.31 us/token** | 11.51 | 1.58 |
+
+**3.5x faster than the CPU.** The GPU is still quicker in wall-clock, but 15.4
+applies: the NPU does it using 0.40 ms of host CPU per inference against the
+GPU's 3.95 ms.
+
+And receptive field is nearly free in this regime. From experiment K, holding
+chunk at 256:
+
+| layers | receptive field | NPU us/token | RF per us/token |
+| --: | --: | --: | --: |
+| 2 | 7 | 1.67 | 4.2 |
+| 4 | 31 | 3.23 | 9.6 |
+| 6 | 127 | 4.15 | 30.6 |
+| 8 | 511 | 3.69 | 138.3 |
+| **10** | **2,047** | **3.32** | **616.1** |
+
+Receptive field grows 292x from 2 to 10 layers while cost roughly doubles,
+because dispatch dominates. **Depth is close to free; buy context with layers.**
+
+### 19.5 So: build this
+
+A model designed for this silicon, derived from measurement rather than
+preference:
+
+- **Dilated causal convolution stack**, ~10 layers, kernel 3, dilation doubling.
+  Receptive field ~2,000 timesteps at ~3.3 us/token.
+- **Chunked at 256 timesteps**, one fused dispatch per chunk. That amortises the
+  0.22 ms floor; the cost is 256 timesteps of latency before a chunk's outputs
+  appear.
+- **Fixed shape end to end**, no dynamic control flow.
+- **If long memory beyond the receptive field is needed**, add an SSM in its
+  *chunked parallel (SSD) form* -- never as an unrolled recurrence.
+- **Justified on host CPU**, not wall-clock: a tenth of a core, continuously.
+
+For a 16 kHz audio stream at 10 ms hops (100 frames/s), chunk 256 is 2.56 s of
+latency -- fine for event detection and activity classification, useless for
+interactive voice. That latency budget is the main design constraint this
+architecture imposes, and it should drive which use cases are chosen.
